@@ -23,11 +23,9 @@ serve(async (req) => {
 
     const { userId, resumeText, targetRole } = await req.json();
 
-    if (!userId) {
-      throw new Error('User ID is required');
-    }
+    const isGuest = !userId || userId === 'guest' || userId === '00000000-0000-0000-0000-000000000000';
 
-    console.log('Generating questions for user:', userId, 'role:', targetRole);
+    console.log('Generating questions for user:', userId || 'guest', 'role:', targetRole);
 
     // Generate interview questions with OpenRouter
     const openrouterKey = Deno.env.get('OPENROUTER_API_KEY');
@@ -128,22 +126,25 @@ serve(async (req) => {
 
     console.log('Generated', questions.length, 'questions');
 
-    // Save questions to database
-    const questionPromises = questions.map((q: any) => 
-      supabaseClient
-        .from('interview_questions')
-        .insert({
-          user_id: userId,
-          question: q.question,
-          question_type: q.type,
-          job_role: targetRole || 'Software Developer',
-          sample_answer: null
-        })
-    );
+    // Save questions to database when authenticated
+    if (!isGuest) {
+      const questionPromises = questions.map((q: any) => 
+        supabaseClient
+          .from('interview_questions')
+          .insert({
+            user_id: userId,
+            question: q.question,
+            question_type: q.type,
+            job_role: targetRole || 'Software Developer',
+            sample_answer: null
+          })
+      );
 
-    await Promise.all(questionPromises);
-
-    console.log('Questions saved to database successfully');
+      await Promise.all(questionPromises);
+      console.log('Questions saved to database successfully');
+    } else {
+      console.log('Guest mode: skipping DB save for interview questions');
+    }
 
     return new Response(JSON.stringify({
       success: true,

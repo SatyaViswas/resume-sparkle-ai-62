@@ -23,16 +23,19 @@ serve(async (req) => {
 
     const formData = await req.formData();
     const file = formData.get('file') as File;
-    const userId = formData.get('userId') as string;
+    const userIdRaw = formData.get('userId');
+    const userId = typeof userIdRaw === 'string' ? userIdRaw : null;
+    const isGuest = !userId || userId === 'guest' || userId === '00000000-0000-0000-0000-000000000000';
 
-    if (!file || !userId) {
-      throw new Error('File and userId are required');
+    if (!file) {
+      throw new Error('File is required');
     }
 
-    console.log('Processing file:', file.name, 'for user:', userId);
+    console.log('Processing file:', file.name, 'for user:', userId || 'guest');
 
     // Step 1: Save file to Supabase Storage
-    const fileName = `${userId}/${Date.now()}-${file.name}`;
+    const ownerFolder = isGuest ? 'guest' : userId!;
+    const fileName = `${ownerFolder}/${Date.now()}-${file.name}`;
     const fileBuffer = await file.arrayBuffer();
     
     const { error: uploadError } = await supabaseClient.storage
@@ -231,46 +234,50 @@ ${extractedText}`;
 
     console.log('Found', jobs.length, 'job matches');
 
-    // Step 5: Save results to Supabase
-    const { data: resumeScan, error: saveError } = await supabaseClient
-      .from('resume_scans')
-      .insert({
-        user_id: userId,
-        original_filename: file.name,
-        extracted_text: extractedText,
-        analysis: analysis,
-        ats_score: analysis.ats_score || 70,
-        suggestions: analysis.improvements || []
-      })
-      .select()
-      .single();
-
-    if (saveError) {
-      console.error('Error saving resume scan:', saveError);
-      throw new Error(`Failed to save analysis: ${saveError.message}`);
-    }
-
-    // Save job applications
-    for (const job of jobs) {
-      await supabaseClient
-        .from('job_applications')
+    // Step 5: Save results to Supabase (skip for guest)
+    let scanId: string | null = null;
+    if (!isGuest) {
+      const { data: resumeScan, error: saveError } = await supabaseClient
+        .from('resume_scans')
         .insert({
           user_id: userId,
-          job_title: job.title,
-          company: job.company,
-          location: job.location,
-          job_url: job.apply_link,
-          status: 'potential'
-        });
-    }
+          original_filename: file.name,
+          extracted_text: extractedText,
+          analysis: analysis,
+          ats_score: analysis.ats_score || 70,
+          suggestions: analysis.improvements || []
+        })
+        .select()
+        .single();
 
-    console.log('Analysis saved successfully with ID:', resumeScan.id);
+      if (saveError) {
+        console.error('Error saving resume scan:', saveError);
+        throw new Error(`Failed to save analysis: ${saveError.message}`);
+      }
+
+      // Save job applications
+      for (const job of jobs) {
+        await supabaseClient
+          .from('job_applications')
+          .insert({
+            user_id: userId,
+            job_title: job.title,
+            company: job.company,
+            location: job.location,
+            job_url: job.apply_link,
+            status: 'potential'
+          });
+      }
+
+      scanId = resumeScan.id;
+      console.log('Analysis saved successfully with ID:', scanId);
+    }
 
     return new Response(JSON.stringify({
       success: true,
       analysis,
       jobs,
-      scanId: resumeScan.id
+      scanId
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

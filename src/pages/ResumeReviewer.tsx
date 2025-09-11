@@ -37,23 +37,16 @@ const ResumeReviewer = () => {
     setProgress(20);
 
     try {
-      // Get current user
+      // Get current user (optional)
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast({
-          title: "Authentication required",
-          description: "Please sign in to analyze your resume",
-          variant: "destructive",
-        });
-        return;
-      }
+      const userId = user?.id ?? 'guest';
 
       setProgress(40);
 
       // Call the analyze-resume edge function
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('userId', user.id);
+      formData.append('userId', userId);
 
       const { data, error } = await supabase.functions.invoke('analyze-resume', {
         body: formData,
@@ -71,7 +64,7 @@ const ResumeReviewer = () => {
         // Generate interview questions
         const { data: questionsResult } = await supabase.functions.invoke('generate-interview-questions', {
           body: {
-            userId: user.id,
+            userId: userId,
             resumeText: data.analysis?.keywords?.join(' ') || '',
             targetRole: 'Software Developer'
           }
