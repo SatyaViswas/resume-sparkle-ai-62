@@ -3,7 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import {
   Upload,
   FileText,
@@ -21,21 +23,103 @@ import {
 const ResumeReviewer = () => {
   const [uploadStep, setUploadStep] = useState<"upload" | "processing" | "complete">("upload");
   const [progress, setProgress] = useState(0);
+  const [analysisData, setAnalysisData] = useState<any>(null);
+  const [jobsData, setJobsData] = useState<any[]>([]);
+  const [questionsData, setQuestionsData] = useState<any[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const { toast } = useToast();
 
-  const handleUpload = () => {
+  const handleFileUpload = useCallback(async (file: File) => {
+    if (!file) return;
+
+    setIsUploading(true);
     setUploadStep("processing");
     setProgress(20);
-    
-    // Simulate processing steps
-    setTimeout(() => setProgress(50), 500);
-    setTimeout(() => setProgress(80), 1000);
-    setTimeout(() => {
-      setProgress(100);
-      setUploadStep("complete");
-    }, 1500);
+
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: "Authentication required",
+          description: "Please sign in to analyze your resume",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setProgress(40);
+
+      // Call the analyze-resume edge function
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('userId', user.id);
+
+      const { data, error } = await supabase.functions.invoke('analyze-resume', {
+        body: formData,
+      });
+
+      if (error) throw error;
+
+      setProgress(80);
+
+      if (data.success) {
+        setAnalysisData(data.analysis);
+        setJobsData(data.jobs || []);
+        setProgress(100);
+        
+        // Generate interview questions
+        const { data: questionsResult } = await supabase.functions.invoke('generate-interview-questions', {
+          body: {
+            userId: user.id,
+            resumeText: data.analysis?.keywords?.join(' ') || '',
+            targetRole: 'Software Developer'
+          }
+        });
+
+        if (questionsResult?.success) {
+          setQuestionsData(questionsResult.questions || []);
+        }
+
+        setUploadStep("complete");
+        
+        toast({
+          title: "Analysis complete!",
+          description: "Your resume has been analyzed successfully.",
+        });
+      } else {
+        throw new Error(data.error || 'Analysis failed');
+      }
+
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast({
+        title: "Upload failed",
+        description: error instanceof Error ? error.message : "Could not analyze resume. Please try again.",
+        variant: "destructive",
+      });
+      setUploadStep("upload");
+      setProgress(0);
+    } finally {
+      setIsUploading(false);
+    }
+  }, [toast]);
+
+  const handleUpload = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.doc,.docx,.jpg,.jpeg,.png';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        handleFileUpload(file);
+      }
+    };
+    input.click();
   };
 
-  const mockAnalysis = {
+  // Use real data or fallback to mock data
+  const currentAnalysis = analysisData || {
     strengths: [
       "Strong technical skills section with relevant technologies",
       "Clear project descriptions with quantifiable results",
@@ -48,7 +132,7 @@ const ResumeReviewer = () => {
       "No mention of soft skills or leadership",
       "Contact information could be more complete"
     ],
-    atsScore: 84,
+    ats_score: 84,
     improvements: [
       "Add more industry-specific keywords (React, TypeScript, Node.js)",
       "Include quantifiable achievements (increased performance by 40%)",
@@ -152,10 +236,19 @@ const ResumeReviewer = () => {
               <p className="text-muted-foreground mb-8">
                 Drag & drop your PDF/DOC file or upload a JPG/PNG photo of your resume
               </p>
-              <div className="border-2 border-dashed border-border rounded-lg p-12 mb-6 hover:border-primary/50 transition-colors">
-                <FileText className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">Drag your resume here or click to browse</p>
-              </div>
+                <div 
+                  className="border-2 border-dashed border-border rounded-lg p-12 mb-6 hover:border-primary/50 transition-colors cursor-pointer"
+                  onClick={handleUpload}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const file = e.dataTransfer.files[0];
+                    if (file) handleFileUpload(file);
+                  }}
+                  onDragOver={(e) => e.preventDefault()}
+                >
+                  <FileText className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">Drag your resume here or click to browse</p>
+                </div>
               <Button 
                 onClick={handleUpload}
                 className="gradient-primary text-white px-8 py-6 text-lg"
@@ -211,7 +304,7 @@ const ResumeReviewer = () => {
                       <h3 className="text-lg font-semibold">Strengths ✅</h3>
                     </div>
                     <ul className="space-y-2">
-                      {mockAnalysis.strengths.map((strength, index) => (
+                      {currentAnalysis.strengths.map((strength, index) => (
                         <li key={index} className="text-sm text-muted-foreground flex items-start space-x-2">
                           <span className="w-1 h-1 bg-success rounded-full mt-2 flex-shrink-0" />
                           <span>{strength}</span>
@@ -226,7 +319,7 @@ const ResumeReviewer = () => {
                       <h3 className="text-lg font-semibold">Weaknesses ⚠️</h3>
                     </div>
                     <ul className="space-y-2">
-                      {mockAnalysis.weaknesses.map((weakness, index) => (
+                      {currentAnalysis.weaknesses.map((weakness, index) => (
                         <li key={index} className="text-sm text-muted-foreground flex items-start space-x-2">
                           <span className="w-1 h-1 bg-warning rounded-full mt-2 flex-shrink-0" />
                           <span>{weakness}</span>
@@ -241,7 +334,7 @@ const ResumeReviewer = () => {
                       <h3 className="text-lg font-semibold">ATS Score 🧭</h3>
                     </div>
                     <div className="text-center">
-                      <div className="text-4xl font-bold text-foreground mb-2">{mockAnalysis.atsScore}%</div>
+                      <div className="text-4xl font-bold text-foreground mb-2">{currentAnalysis.ats_score}%</div>
                       <p className="text-sm text-muted-foreground">Your resume is ATS-friendly</p>
                     </div>
                   </Card>
@@ -252,7 +345,7 @@ const ResumeReviewer = () => {
                       <h3 className="text-lg font-semibold">Improvements 🔧</h3>
                     </div>
                     <ul className="space-y-2">
-                      {mockAnalysis.improvements.map((improvement, index) => (
+                      {currentAnalysis.improvements.map((improvement, index) => (
                         <li key={index} className="text-sm text-muted-foreground flex items-start space-x-2">
                           <span className="w-1 h-1 bg-primary rounded-full mt-2 flex-shrink-0" />
                           <span>{improvement}</span>
@@ -286,28 +379,46 @@ const ResumeReviewer = () => {
 
               <TabsContent value="jobs" className="space-y-6">
                 <div className="space-y-4">
-                  {mockJobs.map((job, index) => (
+                  {(jobsData.length > 0 ? jobsData : [
+                    {
+                      title: "Frontend Developer",
+                      company: "TechCorp Inc.",
+                      location: "San Francisco, CA",
+                      description: "Build responsive web applications with React and TypeScript...",
+                      apply_link: "#"
+                    },
+                    {
+                      title: "Full Stack Engineer", 
+                      company: "Innovation Labs",
+                      location: "Remote",
+                      description: "Work on both frontend and backend systems using modern technologies...",
+                      apply_link: "#"
+                    }
+                  ]).map((job, index) => (
                     <Card key={index} className="p-6 card-shadow hover:card-shadow-lg transition-all duration-300">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h3 className="text-lg font-semibold text-foreground mb-2">{job.title}</h3>
-                          <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-3">
-                            <div className="flex items-center space-x-1">
-                              <Building className="w-4 h-4" />
-                              <span>{job.company}</span>
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h3 className="text-lg font-semibold text-foreground mb-2">{job.title}</h3>
+                              <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-3">
+                                <div className="flex items-center space-x-1">
+                                  <Building className="w-4 h-4" />
+                                  <span>{job.company}</span>
+                                </div>
+                                <div className="flex items-center space-x-1">
+                                  <MapPin className="w-4 h-4" />
+                                  <span>{job.location}</span>
+                                </div>
+                              </div>
+                              <p className="text-sm text-muted-foreground">{job.description}</p>
                             </div>
-                            <div className="flex items-center space-x-1">
-                              <MapPin className="w-4 h-4" />
-                              <span>{job.location}</span>
-                            </div>
+                            <Button 
+                              className="gradient-primary text-white ml-4"
+                              onClick={() => window.open(job.apply_link, '_blank')}
+                            >
+                              Apply
+                              <ExternalLink className="w-4 h-4 ml-2" />
+                            </Button>
                           </div>
-                          <p className="text-sm text-muted-foreground">{job.description}</p>
-                        </div>
-                        <Button className="gradient-primary text-white ml-4">
-                          Apply
-                          <ExternalLink className="w-4 h-4 ml-2" />
-                        </Button>
-                      </div>
                     </Card>
                   ))}
                 </div>
@@ -315,11 +426,28 @@ const ResumeReviewer = () => {
 
               <TabsContent value="interview" className="space-y-6">
                 <div className="grid md:grid-cols-2 gap-6">
-                  {mockQuestions.map((question, index) => (
+                  {(questionsData.length > 0 ? questionsData : [
+                    {
+                      question: "Tell me about a time when you had to work with a difficult team member.",
+                      type: "Behavioral"
+                    },
+                    {
+                      question: "How would you optimize the performance of a React application?", 
+                      type: "Technical"
+                    },
+                    {
+                      question: "Describe a project you're most proud of and why.",
+                      type: "Behavioral"
+                    },
+                    {
+                      question: "How would you handle a situation where a project deadline is at risk?",
+                      type: "Situational"
+                    }
+                  ]).map((question, index) => (
                     <Card key={index} className="p-6 card-shadow">
                       <div className="flex items-start space-x-3 mb-4">
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center flex-shrink-0">
-                          {question.icon}
+                          <MessageSquare className="w-5 h-5" />
                         </div>
                         <div>
                           <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded-full">
