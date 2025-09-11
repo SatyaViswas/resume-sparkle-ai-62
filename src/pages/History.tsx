@@ -2,7 +2,9 @@ import Navbar from "@/components/Navbar";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   Calendar, 
   TrendingUp, 
@@ -15,88 +17,59 @@ import {
 
 const History = () => {
   const [expandedItems, setExpandedItems] = useState<number[]>([]);
+  const [historyData, setHistoryData] = useState<any[]>([]);
+  const [stats, setStats] = useState({
+    total: 0,
+    bestScore: 0,
+    improvement: 0,
+    thisMonth: 0
+  });
+  const { user } = useAuth();
 
-  const toggleExpanded = (index: number) => {
-    setExpandedItems(prev => 
-      prev.includes(index) 
-        ? prev.filter(i => i !== index)
-        : [...prev, index]
-    );
-  };
-
-  const historyData = [
-    {
-      id: 1,
-      date: "2024-01-15",
-      time: "14:30",
-      fileName: "john_doe_resume_v3.pdf",
-      atsScore: 84,
-      status: "completed",
-      analysis: {
-        strengths: ["Strong technical skills", "Clear project descriptions", "Professional formatting"],
-        weaknesses: ["Missing keywords", "Lacks quantifiable results", "No soft skills mentioned"],
-        improvements: ["Add industry keywords", "Include performance metrics", "Highlight leadership experience"]
-      },
-      careerPaths: [
-        { title: "Frontend Developer", match: 89 },
-        { title: "Full Stack Developer", match: 76 },
-        { title: "UI/UX Developer", match: 68 }
-      ]
-    },
-    {
-      id: 2,
-      date: "2024-01-12",
-      time: "09:15",
-      fileName: "john_doe_resume_v2.pdf",
-      atsScore: 72,
-      status: "completed",
-      analysis: {
-        strengths: ["Good education section", "Relevant work experience", "Clean layout"],
-        weaknesses: ["Weak summary section", "Outdated skills", "Generic descriptions"],
-        improvements: ["Modernize skill set", "Strengthen professional summary", "Add specific achievements"]
-      },
-      careerPaths: [
-        { title: "Software Developer", match: 73 },
-        { title: "Web Developer", match: 68 },
-        { title: "Junior Developer", match: 82 }
-      ]
-    },
-    {
-      id: 3,
-      date: "2024-01-08",
-      time: "16:45",
-      fileName: "john_doe_resume_v1.pdf",
-      atsScore: 58,
-      status: "completed",
-      analysis: {
-        strengths: ["Basic structure present", "Contact information complete"],
-        weaknesses: ["Poor formatting", "Limited work experience", "No technical skills listed"],
-        improvements: ["Improve overall formatting", "Add technical skills section", "Expand project descriptions"]
-      },
-      careerPaths: [
-        { title: "Entry Level Developer", match: 65 },
-        { title: "Intern", match: 78 },
-        { title: "Junior Analyst", match: 52 }
-      ]
-    },
-    {
-      id: 4,
-      date: "2024-01-05",
-      time: "11:20",
-      fileName: "resume_draft.pdf",
-      atsScore: 45,
-      status: "needs_improvement",
-      analysis: {
-        strengths: ["Basic information present"],
-        weaknesses: ["Very poor formatting", "Incomplete sections", "No quantifiable achievements"],
-        improvements: ["Complete all sections", "Professional formatting", "Add measurable results"]
-      },
-      careerPaths: [
-        { title: "Trainee Position", match: 45 },
-        { title: "Administrative Role", match: 38 }
-      ]
+  useEffect(() => {
+    if (user) {
+      loadHistoryData();
     }
-  ];
+  }, [user]);
+
+  const loadHistoryData = async () => {
+    if (!user) return;
+
+    try {
+      const { data: scans } = await supabase
+        .from('resume_scans')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (scans) {
+        setHistoryData(scans);
+        
+        // Calculate stats
+        const scores = scans.map(scan => scan.ats_score || 0);
+        const bestScore = Math.max(...scores, 0);
+        const firstScore = scores[scores.length - 1] || 0;
+        const lastScore = scores[0] || 0;
+        const improvement = lastScore - firstScore;
+        
+        const thisMonth = scans.filter(scan => {
+          const scanDate = new Date(scan.created_at);
+          const now = new Date();
+          return scanDate.getMonth() === now.getMonth() && 
+                 scanDate.getFullYear() === now.getFullYear();
+        }).length;
+
+        setStats({
+          total: scans.length,
+          bestScore,
+          improvement: Math.max(improvement, 0),
+          thisMonth
+        });
+      }
+    } catch (error) {
+      console.error('Error loading history:', error);
+    }
+  };
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-success";
@@ -134,7 +107,7 @@ const History = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Analyses</p>
-                <p className="text-2xl font-bold text-foreground">4</p>
+                <p className="text-2xl font-bold text-foreground">{stats.total}</p>
               </div>
             </div>
           </Card>
@@ -146,7 +119,7 @@ const History = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Best Score</p>
-                <p className="text-2xl font-bold text-success">84%</p>
+                <p className="text-2xl font-bold text-success">{stats.bestScore}%</p>
               </div>
             </div>
           </Card>
@@ -158,7 +131,7 @@ const History = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Improvement</p>
-                <p className="text-2xl font-bold text-secondary">+39%</p>
+                <p className="text-2xl font-bold text-secondary">+{stats.improvement}%</p>
               </div>
             </div>
           </Card>
@@ -170,7 +143,7 @@ const History = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">This Month</p>
-                <p className="text-2xl font-bold text-foreground">2</p>
+                <p className="text-2xl font-bold text-foreground">{stats.thisMonth}</p>
               </div>
             </div>
           </Card>
@@ -178,106 +151,127 @@ const History = () => {
 
         {/* History Timeline */}
         <div className="space-y-4">
-          {historyData.map((item, index) => (
-            <Card key={item.id} className="card-shadow hover:card-shadow-lg transition-all duration-300">
-              <div className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="flex flex-col items-center">
-                      <div className="w-4 h-4 rounded-full bg-primary" />
-                      {index !== historyData.length - 1 && (
-                        <div className="w-0.5 h-12 bg-border mt-2" />
-                      )}
-                    </div>
-                    <div>
-                      <div className="flex items-center space-x-3 mb-1">
-                        <h3 className="text-lg font-semibold text-foreground">{item.fileName}</h3>
-                        {getStatusBadge(item.status)}
-                      </div>
-                      <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                        <div className="flex items-center space-x-1">
-                          <Calendar className="w-4 h-4" />
-                          <span>{item.date} at {item.time}</span>
+          {historyData.length > 0 ? (
+            historyData.map((item, index) => {
+              const analysis = item.analysis || {};
+              return (
+                <Card key={item.id} className="card-shadow hover:card-shadow-lg transition-all duration-300">
+                  <div className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div className="flex flex-col items-center">
+                          <div className="w-4 h-4 rounded-full bg-primary" />
+                          {index !== historyData.length - 1 && (
+                            <div className="w-0.5 h-12 bg-border mt-2" />
+                          )}
                         </div>
-                        <div className="flex items-center space-x-1">
-                          <TrendingUp className="w-4 h-4" />
-                          <span className={`font-medium ${getScoreColor(item.atsScore)}`}>
-                            ATS Score: {item.atsScore}%
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Button variant="outline" size="sm">
-                      <Eye className="w-4 h-4 mr-2" />
-                      View
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Download className="w-4 h-4 mr-2" />
-                      Export
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => toggleExpanded(index)}
-                    >
-                      {expandedItems.includes(index) ? (
-                        <ChevronUp className="w-4 h-4" />
-                      ) : (
-                        <ChevronDown className="w-4 h-4" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-
-                {expandedItems.includes(index) && (
-                  <div className="mt-6 pt-6 border-t border-border animate-fade-in">
-                    <div className="grid md:grid-cols-2 gap-6">
-                      <div>
-                        <h4 className="font-semibold text-foreground mb-3">Analysis Summary</h4>
-                        <div className="space-y-3">
-                          <div>
-                            <p className="text-sm font-medium text-success mb-1">Strengths:</p>
-                            <ul className="text-sm text-muted-foreground space-y-1">
-                              {item.analysis.strengths.map((strength, i) => (
-                                <li key={i} className="flex items-start space-x-2">
-                                  <span className="w-1 h-1 bg-success rounded-full mt-2 flex-shrink-0" />
-                                  <span>{strength}</span>
-                                </li>
-                              ))}
-                            </ul>
+                        <div>
+                          <div className="flex items-center space-x-3 mb-1">
+                            <h3 className="text-lg font-semibold text-foreground">{item.original_filename}</h3>
+                            <Badge className="bg-success/10 text-success border-success/20">Completed</Badge>
                           </div>
-                          <div>
-                            <p className="text-sm font-medium text-warning mb-1">Areas for Improvement:</p>
-                            <ul className="text-sm text-muted-foreground space-y-1">
-                              {item.analysis.weaknesses.map((weakness, i) => (
-                                <li key={i} className="flex items-start space-x-2">
-                                  <span className="w-1 h-1 bg-warning rounded-full mt-2 flex-shrink-0" />
-                                  <span>{weakness}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        </div>
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-foreground mb-3">Career Path Matches</h4>
-                        <div className="space-y-2">
-                          {item.careerPaths.map((path, i) => (
-                            <div key={i} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                              <span className="text-sm font-medium text-foreground">{path.title}</span>
-                              <span className="text-sm font-bold text-primary">{path.match}%</span>
+                          <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                            <div className="flex items-center space-x-1">
+                              <Calendar className="w-4 h-4" />
+                              <span>{new Date(item.created_at).toLocaleDateString()}</span>
                             </div>
-                          ))}
+                            <div className="flex items-center space-x-1">
+                              <TrendingUp className="w-4 h-4" />
+                              <span className="font-medium text-success">
+                                ATS Score: {item.ats_score || 0}%
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       </div>
+                      <div className="flex items-center space-x-2">
+                        <Button variant="outline" size="sm">
+                          <Eye className="w-4 h-4 mr-2" />
+                          View
+                        </Button>
+                        <Button variant="outline" size="sm">
+                          <Download className="w-4 h-4 mr-2" />
+                          Export
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setExpandedItems(prev => 
+                              prev.includes(index) 
+                                ? prev.filter(i => i !== index)
+                                : [...prev, index]
+                            );
+                          }}
+                        >
+                          {expandedItems.includes(index) ? (
+                            <ChevronUp className="w-4 h-4" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
+
+                    {expandedItems.includes(index) && (
+                      <div className="mt-6 pt-6 border-t border-border animate-fade-in">
+                        <div className="grid md:grid-cols-2 gap-6">
+                          <div>
+                            <h4 className="font-semibold text-foreground mb-3">Analysis Summary</h4>
+                            <div className="space-y-3">
+                              <div>
+                                <p className="text-sm font-medium text-success mb-1">Strengths:</p>
+                                <ul className="text-sm text-muted-foreground space-y-1">
+                                  {(analysis.strengths || []).map((strength: string, i: number) => (
+                                    <li key={i} className="flex items-start space-x-2">
+                                      <span className="w-1 h-1 bg-success rounded-full mt-2 flex-shrink-0" />
+                                      <span>{strength}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-warning mb-1">Areas for Improvement:</p>
+                                <ul className="text-sm text-muted-foreground space-y-1">
+                                  {(analysis.weaknesses || []).map((weakness: string, i: number) => (
+                                    <li key={i} className="flex items-start space-x-2">
+                                      <span className="w-1 h-1 bg-warning rounded-full mt-2 flex-shrink-0" />
+                                      <span>{weakness}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-foreground mb-3">Suggestions</h4>
+                            <div className="space-y-2">
+                              {(item.suggestions || []).map((suggestion: string, i: number) => (
+                                <div key={i} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                                  <span className="text-sm text-foreground">{suggestion}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
+                </Card>
+              );
+            })
+          ) : (
+            <Card className="p-12 text-center card-shadow">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-muted/50 to-muted/30 flex items-center justify-center">
+                <FileText className="w-8 h-8 text-muted-foreground" />
               </div>
+              <h3 className="text-xl font-semibold text-foreground mb-2">No analysis history</h3>
+              <p className="text-muted-foreground mb-4">Upload your first resume to get started</p>
+              <Button onClick={() => window.location.href = '/analyze'}>
+                Upload Resume
+              </Button>
             </Card>
-          ))}
+          )}
         </div>
       </div>
     </div>

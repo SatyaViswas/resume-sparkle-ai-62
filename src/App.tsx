@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import Welcome from "./pages/Welcome";
+import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import ResumeReviewer from "./pages/ResumeReviewer";
 import ResumeBuilder from "./pages/ResumeBuilder";
@@ -24,6 +25,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Welcome />} />
+            <Route path="/auth" element={<Auth />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/analyze" element={<ResumeReviewer />} />
             <Route path="/builder" element={<ResumeBuilder />} />

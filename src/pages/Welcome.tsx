@@ -45,19 +45,29 @@ const Welcome = () => {
           </div>
         </div>
 
-        {/* CTA Button */}
-        <Button
-          size="lg"
-          className="bg-white text-primary font-semibold px-8 py-6 text-lg hover:bg-white/90 transition-all duration-300 hover:scale-105 card-shadow-lg"
-          onClick={() => navigate("/dashboard")}
-        >
-          Continue to App
-          <ArrowRight className="ml-2 w-5 h-5" />
-        </Button>
+        {/* CTA Buttons */}
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <Button
+            size="lg"
+            className="bg-white text-primary font-semibold px-8 py-6 text-lg hover:bg-white/90 transition-all duration-300 hover:scale-105 card-shadow-lg"
+            onClick={() => navigate("/dashboard")}
+          >
+            Continue to App
+            <ArrowRight className="ml-2 w-5 h-5" />
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            className="border-white/20 text-white font-semibold px-8 py-6 text-lg hover:bg-white/10 transition-all duration-300 hover:scale-105"
+            onClick={() => navigate("/auth")}
+          >
+            Sign In / Sign Up
+          </Button>
+        </div>
 
         {/* Bottom note */}
         <p className="text-white/70 text-sm mt-8">
-          No signup required • Start analyzing your resume in seconds
+          Sign up to save your analyses and track progress over time
         </p>
       </div>
     </div>
