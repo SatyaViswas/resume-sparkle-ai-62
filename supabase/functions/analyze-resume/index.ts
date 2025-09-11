@@ -23,19 +23,16 @@ serve(async (req) => {
 
     const formData = await req.formData();
     const file = formData.get('file') as File;
-    const userIdRaw = formData.get('userId');
-    const userId = typeof userIdRaw === 'string' ? userIdRaw : null;
-    const isGuest = !userId || userId === 'guest' || userId === '00000000-0000-0000-0000-000000000000';
+    const userId = formData.get('userId') as string;
 
-    if (!file) {
-      throw new Error('File is required');
+    if (!file || !userId) {
+      throw new Error('File and userId are required');
     }
 
-    console.log('Processing file:', file.name, 'for user:', userId || 'guest');
+    console.log('Processing file:', file.name, 'for user:', userId);
 
     // Step 1: Save file to Supabase Storage
-    const ownerFolder = isGuest ? 'guest' : userId!;
-    const fileName = `${ownerFolder}/${Date.now()}-${file.name}`;
+    const fileName = `${userId}/${Date.now()}-${file.name}`;
     const fileBuffer = await file.arrayBuffer();
     
     const { error: uploadError } = await supabaseClient.storage
@@ -140,8 +137,6 @@ ${extractedText}`;
       headers: {
         'Authorization': `Bearer ${openrouterKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://resume-mentor.app',
-        'X-Title': 'Resume Mentor'
       },
       body: JSON.stringify({
         model: 'anthropic/claude-3.5-sonnet',
@@ -152,41 +147,29 @@ ${extractedText}`;
           }
         ],
         temperature: 0.3,
-        max_tokens: 2000
       }),
     });
 
     if (!analysisResponse.ok) {
-      console.error(`OpenRouter request failed: ${analysisResponse.status} ${analysisResponse.statusText}`);
-      const errorText = await analysisResponse.text();
-      console.error('OpenRouter error response:', errorText);
-      
-      // Use fallback analysis if OpenRouter fails
+      throw new Error(`OpenRouter request failed: ${analysisResponse.statusText}`);
+    }
+
+    const analysisData = await analysisResponse.json();
+    const analysisText = analysisData.choices[0].message.content;
+    
+    let analysis;
+    try {
+      analysis = JSON.parse(analysisText);
+    } catch (e) {
+      // If JSON parsing fails, create a fallback analysis
       analysis = {
-        strengths: ["Resume uploaded successfully", "File format is supported", "Content extracted successfully"],
-        weaknesses: ["Unable to perform AI analysis at this time", "Please try again later"],
-        ats_suggestions: ["Ensure proper formatting", "Use standard section headings", "Include relevant keywords"],
-        improvements: ["Review for spelling and grammar", "Add quantifiable achievements", "Optimize for ATS systems"],
-        keywords: ["professional", "experience", "skills", "education"],
-        ats_score: 75
+        strengths: ["Resume uploaded successfully"],
+        weaknesses: ["Analysis formatting needs improvement"],
+        ats_suggestions: ["Consider restructuring content"],
+        improvements: ["Review and optimize sections"],
+        keywords: ["skills", "experience", "education"],
+        ats_score: 70
       };
-    } else {
-      const analysisData = await analysisResponse.json();
-      const analysisText = analysisData.choices[0].message.content;
-      
-      try {
-        analysis = JSON.parse(analysisText);
-      } catch (e) {
-        // If JSON parsing fails, create a fallback analysis
-        analysis = {
-          strengths: ["Resume uploaded successfully"],
-          weaknesses: ["Analysis formatting needs improvement"],
-          ats_suggestions: ["Consider restructuring content"],
-          improvements: ["Review and optimize sections"],
-          keywords: ["skills", "experience", "education"],
-          ats_score: 70
-        };
-      }
     }
 
     console.log('Analysis completed successfully');
@@ -248,50 +231,46 @@ ${extractedText}`;
 
     console.log('Found', jobs.length, 'job matches');
 
-    // Step 5: Save results to Supabase (skip for guest)
-    let scanId: string | null = null;
-    if (!isGuest) {
-      const { data: resumeScan, error: saveError } = await supabaseClient
-        .from('resume_scans')
+    // Step 5: Save results to Supabase
+    const { data: resumeScan, error: saveError } = await supabaseClient
+      .from('resume_scans')
+      .insert({
+        user_id: userId,
+        original_filename: file.name,
+        extracted_text: extractedText,
+        analysis: analysis,
+        ats_score: analysis.ats_score || 70,
+        suggestions: analysis.improvements || []
+      })
+      .select()
+      .single();
+
+    if (saveError) {
+      console.error('Error saving resume scan:', saveError);
+      throw new Error(`Failed to save analysis: ${saveError.message}`);
+    }
+
+    // Save job applications
+    for (const job of jobs) {
+      await supabaseClient
+        .from('job_applications')
         .insert({
           user_id: userId,
-          original_filename: file.name,
-          extracted_text: extractedText,
-          analysis: analysis,
-          ats_score: analysis.ats_score || 70,
-          suggestions: analysis.improvements || []
-        })
-        .select()
-        .single();
-
-      if (saveError) {
-        console.error('Error saving resume scan:', saveError);
-        throw new Error(`Failed to save analysis: ${saveError.message}`);
-      }
-
-      // Save job applications
-      for (const job of jobs) {
-        await supabaseClient
-          .from('job_applications')
-          .insert({
-            user_id: userId,
-            job_title: job.title,
-            company: job.company,
-            location: job.location,
-            job_url: job.apply_link,
-            status: 'potential'
-          });
-      }
-
-      scanId = resumeScan.id;
-      console.log('Analysis saved successfully with ID:', scanId);
+          job_title: job.title,
+          company: job.company,
+          location: job.location,
+          job_url: job.apply_link,
+          status: 'potential'
+        });
     }
+
+    console.log('Analysis saved successfully with ID:', resumeScan.id);
 
     return new Response(JSON.stringify({
       success: true,
       analysis,
       jobs,
-      scanId
+      scanId: resumeScan.id
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

@@ -1,10 +1,1 @@
 project_id = "xwoeluhtkzednjetkgtq"
-
-[functions.analyze-resume]
-verify_jwt = false
-
-[functions.generate-interview-questions]
-verify_jwt = false
-
-[functions.search-jobs]
-verify_jwt = false

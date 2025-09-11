@@ -23,9 +23,11 @@ serve(async (req) => {
 
     const { userId, resumeText, targetRole } = await req.json();
 
-    const isGuest = !userId || userId === 'guest' || userId === '00000000-0000-0000-0000-000000000000';
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
 
-    console.log('Generating questions for user:', userId || 'guest', 'role:', targetRole);
+    console.log('Generating questions for user:', userId, 'role:', targetRole);
 
     // Generate interview questions with OpenRouter
     const openrouterKey = Deno.env.get('OPENROUTER_API_KEY');
@@ -64,8 +66,6 @@ serve(async (req) => {
       headers: {
         'Authorization': `Bearer ${openrouterKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://resume-mentor.app',
-        'X-Title': 'Resume Mentor'
       },
       body: JSON.stringify({
         model: 'anthropic/claude-3.5-sonnet',
@@ -76,17 +76,23 @@ serve(async (req) => {
           }
         ],
         temperature: 0.7,
-        max_tokens: 2000
       }),
     });
 
     if (!response.ok) {
-      console.error(`OpenRouter request failed: ${response.status} ${response.statusText}`);
-      const errorText = await response.text();
-      console.error('OpenRouter error response:', errorText);
-      
-      // Use fallback questions if OpenRouter fails
-      const questions = [
+      throw new Error(`OpenRouter request failed: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const questionsText = data.choices[0].message.content;
+    
+    let questions;
+    try {
+      questions = JSON.parse(questionsText);
+    } catch (e) {
+      console.log('Failed to parse JSON, using fallback questions');
+      // Fallback questions if JSON parsing fails
+      questions = [
         {
           question: "Tell me about a time when you had to work with a difficult team member.",
           type: "Behavioral",
@@ -118,71 +124,26 @@ serve(async (req) => {
           category: "learning"
         }
       ];
-    } else {
-      const data = await response.json();
-      const questionsText = data.choices[0].message.content;
-      
-      try {
-        questions = JSON.parse(questionsText);
-      } catch (e) {
-        console.log('Failed to parse JSON, using fallback questions');
-        // Fallback questions if JSON parsing fails
-        questions = [
-          {
-            question: "Tell me about a time when you had to work with a difficult team member.",
-            type: "Behavioral",
-            category: "teamwork"
-          },
-          {
-            question: "How would you optimize the performance of a React application?",
-            type: "Technical",
-            category: "frontend"
-          },
-          {
-            question: "Describe a project you're most proud of and why.",
-            type: "Behavioral", 
-            category: "achievements"
-          },
-          {
-            question: "How would you handle a situation where a project deadline is at risk?",
-            type: "Situational",
-            category: "project-management"
-          },
-          {
-            question: "Explain the difference between server-side and client-side rendering.",
-            type: "Technical",
-            category: "web-development"
-          },
-          {
-            question: "How would you approach learning a new technology for a project?",
-            type: "Situational",
-            category: "learning"
-          }
-        ];
-      }
     }
 
     console.log('Generated', questions.length, 'questions');
 
-    // Save questions to database when authenticated
-    if (!isGuest) {
-      const questionPromises = questions.map((q: any) => 
-        supabaseClient
-          .from('interview_questions')
-          .insert({
-            user_id: userId,
-            question: q.question,
-            question_type: q.type,
-            job_role: targetRole || 'Software Developer',
-            sample_answer: null
-          })
-      );
+    // Save questions to database
+    const questionPromises = questions.map((q: any) => 
+      supabaseClient
+        .from('interview_questions')
+        .insert({
+          user_id: userId,
+          question: q.question,
+          question_type: q.type,
+          job_role: targetRole || 'Software Developer',
+          sample_answer: null
+        })
+    );
 
-      await Promise.all(questionPromises);
-      console.log('Questions saved to database successfully');
-    } else {
-      console.log('Guest mode: skipping DB save for interview questions');
-    }
+    await Promise.all(questionPromises);
+
+    console.log('Questions saved to database successfully');
 
     return new Response(JSON.stringify({
       success: true,
