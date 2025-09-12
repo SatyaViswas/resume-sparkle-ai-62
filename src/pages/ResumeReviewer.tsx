@@ -29,6 +29,8 @@ const ResumeReviewer = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
   const [extractedText, setExtractedText] = useState<string>('');
+  const [careerAnalysisStatus, setCareerAnalysisStatus] = useState<"analyzing" | "complete" | "error">("complete");
+  const [extractedSkills, setExtractedSkills] = useState<string[]>([]);
   const { toast } = useToast();
 
   const handleFileUpload = useCallback(async (file: File) => {
@@ -63,6 +65,8 @@ const ResumeReviewer = () => {
         setAnalysisData(data.analysis);
         setJobsData(data.jobs || []);
         setExtractedText(data.extracted_text || '');
+        setExtractedSkills(data.analysis?.keywords || []);
+        setCareerAnalysisStatus("complete");
         setProgress(100);
         setUploadStep("complete");
         
@@ -161,26 +165,48 @@ const ResumeReviewer = () => {
     ]
   };
 
-  const mockCareerPaths = [
-    {
-      title: "Frontend Developer",
-      match: 89,
-      reason: "Strong React and JavaScript skills align perfectly",
-      learning: "Advanced TypeScript, Testing Frameworks"
-    },
-    {
-      title: "Full Stack Developer",
-      match: 76,
-      reason: "Good foundation in both frontend and backend technologies",
-      learning: "Database Design, System Architecture"
-    },
-    {
-      title: "UI/UX Developer",
-      match: 68,
-      reason: "Design-focused projects show visual sensibility",
-      learning: "Figma, User Research, Design Systems"
+  const careerPaths = analysisData?.career_paths || [];
+
+  const reAnalyzeCareerPaths = async () => {
+    if (!extractedText) return;
+    
+    setCareerAnalysisStatus("analyzing");
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const formData = new FormData();
+      formData.append('resumeText', extractedText);
+      if (user) {
+        formData.append('userId', user.id);
+      }
+      
+      const { data, error } = await supabase.functions.invoke('analyze-resume', {
+        body: formData
+      });
+
+      if (error) throw error;
+
+      if (data.success && data.analysis?.career_paths) {
+        setAnalysisData(prev => ({ ...prev, career_paths: data.analysis.career_paths }));
+        setCareerAnalysisStatus("complete");
+        toast({
+          title: "Career paths updated!",
+          description: "Fresh career suggestions have been generated.",
+        });
+      } else {
+        throw new Error('Failed to re-analyze career paths');
+      }
+    } catch (error) {
+      console.error('Career re-analysis error:', error);
+      setCareerAnalysisStatus("error");
+      toast({
+        title: "Re-analysis failed",
+        description: "Could not generate fresh career paths. Please try again.",
+        variant: "destructive",
+      });
     }
-  ];
+  };
 
   const mockJobs = [
     {
@@ -381,24 +407,120 @@ const ResumeReviewer = () => {
               </TabsContent>
 
               <TabsContent value="careers" className="space-y-6">
-                <div className="grid md:grid-cols-3 gap-6">
-                  {mockCareerPaths.map((path, index) => (
-                    <Card key={index} className="p-6 card-shadow hover:card-shadow-lg transition-all duration-300">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold">{path.title}</h3>
-                        <span className="text-2xl font-bold text-primary">{path.match}%</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-4">{path.reason}</p>
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium text-foreground">Learn:</p>
-                        <p className="text-xs text-muted-foreground">{path.learning}</p>
-                      </div>
-                      <Button variant="outline" className="w-full mt-4">
-                        View Learning Path
-                      </Button>
-                    </Card>
-                  ))}
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h2 className="text-xl font-bold">Career Path Suggestions</h2>
+                    <p className="text-muted-foreground">Based on your resume analysis</p>
+                  </div>
+                  {careerPaths.length > 0 && (
+                    <Button 
+                      variant="outline" 
+                      onClick={reAnalyzeCareerPaths}
+                      disabled={careerAnalysisStatus === "analyzing"}
+                    >
+                      {careerAnalysisStatus === "analyzing" ? "Re-analyzing..." : "Re-analyze Career Paths"}
+                    </Button>
+                  )}
                 </div>
+
+                {careerAnalysisStatus === "analyzing" && (
+                  <Card className="p-8 text-center">
+                    <div className="w-12 h-12 mx-auto mb-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    <p className="text-muted-foreground">Analyzing your background and suggesting career paths...</p>
+                  </Card>
+                )}
+
+                {careerAnalysisStatus === "error" && (
+                  <Card className="p-8 text-center">
+                    <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-warning" />
+                    <p className="text-muted-foreground">Unable to analyze career paths. Please try uploading resume again.</p>
+                  </Card>
+                )}
+
+                {careerPaths.length === 0 && careerAnalysisStatus === "complete" && (
+                  <Card className="p-8 text-center">
+                    <Compass className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-muted-foreground">Upload a resume to see personalized career suggestions</p>
+                  </Card>
+                )}
+
+                {careerPaths.length > 0 && careerAnalysisStatus === "complete" && (
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {careerPaths.map((path: any, index: number) => (
+                      <Card key={index} className="p-6 card-shadow hover:card-shadow-lg transition-all duration-300">
+                        <h3 className="text-xl font-bold text-foreground mb-4">{path.title}</h3>
+                        
+                        <div className="space-y-4">
+                          <div>
+                            <p className="text-sm font-medium text-foreground mb-2">Why this fits you:</p>
+                            <p className="text-sm text-muted-foreground">{path.why_fit || path.whyfit}</p>
+                          </div>
+
+                          {path.existing_skills && path.existing_skills.length > 0 && (
+                            <div>
+                              <p className="text-sm font-medium text-foreground mb-2">✅ Skills you have:</p>
+                              <div className="flex flex-wrap gap-1">
+                                {path.existing_skills.map((skill: string, idx: number) => (
+                                  <span key={idx} className="inline-block px-2 py-1 text-xs bg-success/20 text-success rounded-full">
+                                    {skill}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {path.missing_skills && path.missing_skills.length > 0 && (
+                            <div>
+                              <p className="text-sm font-medium text-foreground mb-2">🎯 Skills to develop:</p>
+                              <div className="flex flex-wrap gap-1">
+                                {path.missing_skills.map((skill: string, idx: number) => (
+                                  <span key={idx} className="inline-block px-2 py-1 text-xs bg-warning/20 text-warning rounded-full">
+                                    {skill}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {path.learning_resources && path.learning_resources.length > 0 && (
+                            <div>
+                              <p className="text-sm font-medium text-foreground mb-2">📚 Recommended Learning:</p>
+                              <div className="space-y-2">
+                                {path.learning_resources.map((resource: any, idx: number) => (
+                                  <div key={idx} className="text-xs">
+                                    <a 
+                                      href={resource.link} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="text-primary hover:underline font-medium"
+                                    >
+                                      {resource.course_name}
+                                    </a>
+                                    <p className="text-muted-foreground">({resource.provider}) - {resource.skill}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {path.learningpath && (
+                            <div>
+                              <p className="text-sm font-medium text-foreground mb-2">📚 Learning Resource:</p>
+                              <a 
+                                href={path.learningpath} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-xs text-primary hover:underline"
+                              >
+                                View Learning Path <ExternalLink className="w-3 h-3 inline ml-1" />
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="jobs" className="space-y-6">

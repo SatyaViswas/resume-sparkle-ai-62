@@ -135,6 +135,21 @@ serve(async (req) => {
     }
 
     console.log('Text extracted successfully, length:', extractedText.length);
+    console.log('Resume content preview:', extractedText.substring(0, 200));
+
+    // Validate resume content
+    if (extractedText.length < 50) {
+      throw new Error('Resume content appears incomplete. Please check uploaded file.');
+    }
+
+    const resumeKeywords = ['experience', 'education', 'skills', 'work', 'project'];
+    const hasResumeContent = resumeKeywords.some(keyword => 
+      extractedText.toLowerCase().includes(keyword)
+    );
+
+    if (!hasResumeContent) {
+      throw new Error("This doesn't appear to be a resume. Please upload a resume file.");
+    }
 
     // Step 3: Analyze with Cohere
     const cohereKey = Deno.env.get('COHERE_API_KEY');
@@ -225,27 +240,40 @@ ${extractedText}`;
     }
 
     // Career Paths
-    const careerPrompt = `Analyze the extracted plain text resume input and generate 3 to 4 realistic and personalized career path suggestions tightly based on the skills and experience mentioned in the resume.
+    const careerPrompt = `Analyze this resume and suggest 3-4 realistic career paths based on the candidate's ACTUAL skills, experience, and education mentioned in the resume.
 
-For each career path suggestion, include:
-- A clear explanation of why the candidate fits this career, anchored in their existing resume skills
-- A list of missing skills or knowledge necessary for entering and succeeding in the career path, explicitly excluding any skills already present in the resume
-- A prioritized list of beginner-friendly tasks or goals focused on acquiring only the missing skills
-- One or more free or affordable online resources (URLs) specifically targeted for learning the missing skills
+For each career path, provide:
+1. Job title
+2. Why this path fits (reference specific skills/experience from their resume)
+3. Skills they already have (from resume)
+4. Missing skills needed for this career
+5. 2-3 specific online courses/resources to learn missing skills
 
-Return ONLY valid JSON array with no additional text:
-
+Return STRICT JSON format:
 [
   {
-    "title": "Career Path Name",
-    "whyfit": "Explanation referencing the resume skills and experience that make this a good fit",
-    "missingSkills": ["skill1", "skill2", "skill3"],
-    "startertasks": ["actionable task 1", "actionable task 2", "actionable task 3"],
-    "learningpath": "https://specific-learning-resource-url.com"
+    "title": "Data Analyst",
+    "why_fit": "Your Python programming and statistics background from your Computer Science degree align well with data analysis roles",
+    "existing_skills": ["Python", "Statistics", "Problem-solving"],
+    "missing_skills": ["SQL", "Tableau", "Data Visualization"],
+    "learning_resources": [
+      {
+        "skill": "SQL",
+        "course_name": "SQL for Data Analysis",
+        "link": "https://www.coursera.org/learn/sql-data-analysis",
+        "provider": "Coursera"
+      },
+      {
+        "skill": "Tableau", 
+        "course_name": "Tableau Desktop Specialist",
+        "link": "https://www.tableau.com/learn/training",
+        "provider": "Tableau"
+      }
+    ]
   }
 ]
 
-Resume text:
+Resume content:
 ${extractedText}`;
 
     let careerPaths;
@@ -268,21 +296,65 @@ ${extractedText}`;
         try {
           careerPaths = JSON.parse(careerData.text);
         } catch (e) {
+          console.log('Failed to parse career JSON, using fallback');
           careerPaths = [
             {
               title: "Software Developer",
-              whyfit: "Strong technical background based on resume experience",
-              missingSkills: ["Advanced frameworks", "System design", "Testing methodologies"],
-              startertasks: ["Build portfolio projects", "Learn popular frameworks", "Practice coding challenges"],
-              learningpath: "https://developer.mozilla.org"
+              why_fit: "Strong technical background based on resume experience",
+              existing_skills: ["Programming", "Problem-solving"],
+              missing_skills: ["Advanced frameworks", "System design", "Testing methodologies"],
+              learning_resources: [
+                {
+                  skill: "Advanced frameworks",
+                  course_name: "React - The Complete Guide",
+                  link: "https://www.udemy.com/course/react-the-complete-guide-incl-redux/",
+                  provider: "Udemy"
+                }
+              ]
             }
           ];
         }
       } else {
+        console.log('Career response not ok, using fallback');
         careerPaths = [];
       }
     } catch (e) {
+      console.log('Career analysis failed:', e);
       careerPaths = [];
+    }
+
+    // If career analysis failed completely, retry with stricter prompt
+    if (careerPaths.length === 0) {
+      try {
+        console.log('Retrying career analysis with stricter prompt...');
+        const retryPrompt = `You MUST return valid JSON. ${careerPrompt}`;
+        
+        const retryResponse = await fetch('https://api.cohere.com/v1/chat', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${cohereKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'command-r-plus',
+            message: retryPrompt,
+            temperature: 0.3,
+          }),
+        });
+
+        if (retryResponse.ok) {
+          const retryData = await retryResponse.json();
+          try {
+            careerPaths = JSON.parse(retryData.text);
+          } catch (e) {
+            console.log('Retry also failed, showing error to user');
+            careerPaths = [];
+          }
+        }
+      } catch (e) {
+        console.log('Career retry failed:', e);
+        careerPaths = [];
+      }
     }
 
     // Job Keywords
