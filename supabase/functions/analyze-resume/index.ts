@@ -225,14 +225,23 @@ ${extractedText}`;
     }
 
     // Career Paths
-    const careerPrompt = `Based on this resume, suggest 3-4 career paths. Return ONLY valid JSON array with no additional text:
+    const careerPrompt = `Analyze the extracted plain text resume input and generate 3 to 4 realistic and personalized career path suggestions tightly based on the skills and experience mentioned in the resume.
+
+For each career path suggestion, include:
+- A clear explanation of why the candidate fits this career, anchored in their existing resume skills
+- A list of missing skills or knowledge necessary for entering and succeeding in the career path, explicitly excluding any skills already present in the resume
+- A prioritized list of beginner-friendly tasks or goals focused on acquiring only the missing skills
+- One or more free or affordable online resources (URLs) specifically targeted for learning the missing skills
+
+Return ONLY valid JSON array with no additional text:
 
 [
   {
-    "title": "Career Title",
-    "why_fit": "Brief reason why this fits their background",
-    "starter_tasks": ["task1", "task2", "task3"],
-    "learning_link": "https://example.com/learn"
+    "title": "Career Path Name",
+    "whyfit": "Explanation referencing the resume skills and experience that make this a good fit",
+    "missingSkills": ["skill1", "skill2", "skill3"],
+    "startertasks": ["actionable task 1", "actionable task 2", "actionable task 3"],
+    "learningpath": "https://specific-learning-resource-url.com"
   }
 ]
 
@@ -262,9 +271,10 @@ ${extractedText}`;
           careerPaths = [
             {
               title: "Software Developer",
-              why_fit: "Strong technical background",
-              starter_tasks: ["Build projects", "Learn frameworks", "Practice coding"],
-              learning_link: "https://developer.mozilla.org"
+              whyfit: "Strong technical background based on resume experience",
+              missingSkills: ["Advanced frameworks", "System design", "Testing methodologies"],
+              startertasks: ["Build portfolio projects", "Learn popular frameworks", "Practice coding challenges"],
+              learningpath: "https://developer.mozilla.org"
             }
           ];
         }
