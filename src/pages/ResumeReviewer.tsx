@@ -27,6 +27,8 @@ const ResumeReviewer = () => {
   const [jobsData, setJobsData] = useState<any[]>([]);
   const [questionsData, setQuestionsData] = useState<any[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
+  const [extractedText, setExtractedText] = useState<string>('');
   const { toast } = useToast();
 
   const handleFileUpload = useCallback(async (file: File) => {
@@ -37,23 +39,17 @@ const ResumeReviewer = () => {
     setProgress(20);
 
     try {
-      // Get current user
+      // Get current user (optional for guest uploads)
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast({
-          title: "Authentication required",
-          description: "Please sign in to analyze your resume",
-          variant: "destructive",
-        });
-        return;
-      }
 
       setProgress(40);
 
       // Call the analyze-resume edge function
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('userId', user.id);
+      if (user) {
+        formData.append('userId', user.id);
+      }
 
       const { data, error } = await supabase.functions.invoke('analyze-resume', {
         body: formData,
@@ -66,21 +62,8 @@ const ResumeReviewer = () => {
       if (data.success) {
         setAnalysisData(data.analysis);
         setJobsData(data.jobs || []);
+        setExtractedText(data.extracted_text || '');
         setProgress(100);
-        
-        // Generate interview questions
-        const { data: questionsResult } = await supabase.functions.invoke('generate-interview-questions', {
-          body: {
-            userId: user.id,
-            resumeText: data.analysis?.keywords?.join(' ') || '',
-            targetRole: 'Software Developer'
-          }
-        });
-
-        if (questionsResult?.success) {
-          setQuestionsData(questionsResult.questions || []);
-        }
-
         setUploadStep("complete");
         
         toast({
@@ -116,6 +99,43 @@ const ResumeReviewer = () => {
       }
     };
     input.click();
+  };
+
+  const handleGenerateQuestions = async () => {
+    setIsGeneratingQuestions(true);
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const { data, error } = await supabase.functions.invoke('generate-interview-questions', {
+        body: {
+          userId: user?.id || null,
+          resumeText: extractedText,
+          targetRole: 'Software Developer'
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        setQuestionsData(data.questions || []);
+        toast({
+          title: "Questions generated!",
+          description: "Interview questions have been generated based on your resume.",
+        });
+      } else {
+        throw new Error(data.error || 'Failed to generate questions');
+      }
+    } catch (error) {
+      console.error('Question generation error:', error);
+      toast({
+        title: "Generation failed",
+        description: "Could not generate questions. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingQuestions(false);
+    }
   };
 
   // Use real data or fallback to mock data
@@ -268,15 +288,19 @@ const ResumeReviewer = () => {
               <h2 className="text-2xl font-bold text-foreground mb-4">Analyzing Your Resume</h2>
               <div className="space-y-4 mb-8">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Uploading...</span>
+                  <span className="text-muted-foreground">Uploading file...</span>
                   <CheckCircle className="w-4 h-4 text-success" />
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Extracting text...</span>
-                  {progress >= 50 ? <CheckCircle className="w-4 h-4 text-success" /> : <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />}
+                  {progress >= 40 ? <CheckCircle className="w-4 h-4 text-success" /> : <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />}
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">AI Analysis...</span>
+                  <span className="text-muted-foreground">Analyzing resume...</span>
+                  {progress >= 80 ? <CheckCircle className="w-4 h-4 text-success" /> : <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />}
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Fetching jobs...</span>
                   {progress >= 100 ? <CheckCircle className="w-4 h-4 text-success" /> : <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />}
                 </div>
               </div>
@@ -425,46 +449,73 @@ const ResumeReviewer = () => {
               </TabsContent>
 
               <TabsContent value="interview" className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-6">
-                  {(questionsData.length > 0 ? questionsData : [
-                    {
-                      question: "Tell me about a time when you had to work with a difficult team member.",
-                      type: "Behavioral"
-                    },
-                    {
-                      question: "How would you optimize the performance of a React application?", 
-                      type: "Technical"
-                    },
-                    {
-                      question: "Describe a project you're most proud of and why.",
-                      type: "Behavioral"
-                    },
-                    {
-                      question: "How would you handle a situation where a project deadline is at risk?",
-                      type: "Situational"
-                    }
-                  ]).map((question, index) => (
-                    <Card key={index} className="p-6 card-shadow">
-                      <div className="flex items-start space-x-3 mb-4">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center flex-shrink-0">
-                          <MessageSquare className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded-full">
-                            {question.type}
-                          </span>
-                        </div>
-                      </div>
-                      <p className="text-sm text-foreground font-medium mb-4">{question.question}</p>
-                      <div className="space-y-2">
-                        <textarea
-                          placeholder="Type your answer here..."
-                          className="w-full h-20 p-3 border border-border rounded-lg resize-none text-sm"
-                        />
-                      </div>
-                    </Card>
-                  ))}
-                </div>
+                {questionsData.length === 0 ? (
+                  <Card className="p-8 text-center card-shadow">
+                    <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
+                      <MessageSquare className="w-10 h-10 text-primary" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-foreground mb-2">No questions yet</h3>
+                    <p className="text-muted-foreground mb-6">Click Generate to see interview questions based on your resume</p>
+                    <Button 
+                      onClick={handleGenerateQuestions}
+                      disabled={isGeneratingQuestions || !extractedText}
+                      className="gradient-primary text-white px-6 py-2"
+                    >
+                      {isGeneratingQuestions ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                          Generating...
+                        </>
+                      ) : (
+                        'Generate Interview Questions'
+                      )}
+                    </Button>
+                  </Card>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold">Interview Questions</h3>
+                      <Button 
+                        onClick={handleGenerateQuestions}
+                        disabled={isGeneratingQuestions}
+                        variant="outline"
+                        size="sm"
+                      >
+                        {isGeneratingQuestions ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin mr-2" />
+                            Regenerating...
+                          </>
+                        ) : (
+                          'Regenerate'
+                        )}
+                      </Button>
+                    </div>
+                    <div className="grid md:grid-cols-2 gap-6">
+                      {questionsData.map((question, index) => (
+                        <Card key={index} className="p-6 card-shadow">
+                          <div className="flex items-start space-x-3 mb-4">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center flex-shrink-0">
+                              <MessageSquare className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded-full">
+                                Question {index + 1}
+                              </span>
+                            </div>
+                          </div>
+                          <p className="text-sm text-foreground font-medium mb-4">{typeof question === 'string' ? question : question.question}</p>
+                          <div className="space-y-2">
+                            <textarea
+                              placeholder="Type your answer here..."
+                              className="w-full h-20 p-3 border border-border rounded-lg resize-none text-sm"
+                            />
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
           </div>
