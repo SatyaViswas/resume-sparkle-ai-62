@@ -239,44 +239,89 @@ ${extractedText}`;
       };
     }
 
-    // Career Paths
-    const careerPrompt = `Analyze this resume and suggest 3-4 realistic career paths based on the candidate's ACTUAL skills, experience, and education mentioned in the resume.
+    // Step 1: Extract Skills from Resume
+    console.log('Extracting skills from resume...');
+    console.log('Resume content sample:', extractedText.substring(0, 200));
+    
+    const skillsPrompt = `Extract all technical skills, soft skills, tools, technologies, programming languages, certifications, and domain expertise mentioned in this resume. Return ONLY a JSON array of strings.
 
-For each career path, provide:
-1. Job title
-2. Why this path fits (reference specific skills/experience from their resume)
-3. Skills they already have (from resume)
-4. Missing skills needed for this career
-5. 2-3 specific online courses/resources to learn missing skills
+Return format: ["Python", "Project Management", "SQL", "Marketing", "Adobe Photoshop"]
 
-Return STRICT JSON format:
+Resume:
+${extractedText}`;
+
+    let extractedSkills = [];
+    try {
+      const skillsResponse = await fetch('https://api.cohere.com/v1/chat', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${cohereKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'command-r-plus',
+          message: skillsPrompt,
+          temperature: 0.1,
+        }),
+      });
+
+      if (skillsResponse.ok) {
+        const skillsData = await skillsResponse.json();
+        try {
+          extractedSkills = JSON.parse(skillsData.text);
+          console.log('Extracted skills:', extractedSkills);
+        } catch (e) {
+          console.log('Failed to parse skills, using basic extraction');
+          // Basic fallback - extract common skills
+          const commonSkills = ['Communication', 'Problem-solving', 'Leadership', 'Teamwork'];
+          extractedSkills = commonSkills;
+        }
+      }
+    } catch (e) {
+      console.log('Skills extraction failed:', e);
+      extractedSkills = ['Communication', 'Problem-solving'];
+    }
+
+    // Step 2: Generate Career Paths based on extracted skills
+    console.log('Generating career paths based on skills...');
+    
+    const careerPrompt = `Based on the skills and experience in this resume, suggest 4 different career paths this person could realistically pursue. Each path should be based on their ACTUAL skills and background.
+
+Extracted Skills: ${extractedSkills.join(', ')}
+
+Diversify the career suggestions - consider:
+- If they have business skills → Business Analyst, Product Manager
+- If they have creative skills → UX Designer, Content Creator  
+- If they have data skills → Data Analyst, Research Specialist
+- If they have technical skills → Software roles, System Admin
+- If they have communication skills → Technical Writer, Sales
+- If they have leadership experience → Team Lead, Project Manager
+
+Return STRICT JSON format with NO extra text:
 [
   {
-    "title": "Data Analyst",
-    "why_fit": "Your Python programming and statistics background from your Computer Science degree align well with data analysis roles",
-    "existing_skills": ["Python", "Statistics", "Problem-solving"],
-    "missing_skills": ["SQL", "Tableau", "Data Visualization"],
+    "title": "Specific Job Title",
+    "match_percentage": 75,
+    "why_fit": "Based on your [specific skills from resume], you have strong foundation for this role",
+    "existing_skills": ["skill1", "skill2", "skill3"],
+    "missing_skills": ["skill4", "skill5"],
+    "salary_range": "$50k-$80k",
+    "growth_potential": "High",
     "learning_resources": [
       {
-        "skill": "SQL",
-        "course_name": "SQL for Data Analysis",
-        "link": "https://www.coursera.org/learn/sql-data-analysis",
-        "provider": "Coursera"
-      },
-      {
-        "skill": "Tableau", 
-        "course_name": "Tableau Desktop Specialist",
-        "link": "https://www.tableau.com/learn/training",
-        "provider": "Tableau"
+        "skill": "missing_skill_name",
+        "course_name": "Specific Course Name",
+        "provider": "Coursera",
+        "link": "https://www.coursera.org/course-link"
       }
     ]
   }
 ]
 
-Resume content:
+Resume Content:
 ${extractedText}`;
 
-    let careerPaths;
+    let careerPaths = [];
     try {
       const careerResponse = await fetch('https://api.cohere.com/v1/chat', {
         method: 'POST',
@@ -293,68 +338,151 @@ ${extractedText}`;
 
       if (careerResponse.ok) {
         const careerData = await careerResponse.json();
+        console.log('Raw career response:', careerData.text.substring(0, 300));
+        
         try {
-          careerPaths = JSON.parse(careerData.text);
+          // Clean the response - remove any markdown formatting
+          let cleanedText = careerData.text.trim();
+          if (cleanedText.startsWith('```json')) {
+            cleanedText = cleanedText.replace(/```json/g, '').replace(/```/g, '');
+          }
+          
+          careerPaths = JSON.parse(cleanedText);
+          console.log('Parsed career paths:', careerPaths.map(p => p.title));
+          
+          // Validate diversity
+          const uniqueTitles = [...new Set(careerPaths.map(p => p.title))];
+          if (uniqueTitles.length < careerPaths.length * 0.8) {
+            console.log('Career paths not diverse enough, retrying...');
+            throw new Error('Not diverse enough');
+          }
+          
         } catch (e) {
-          console.log('Failed to parse career JSON, using fallback');
-          careerPaths = [
-            {
-              title: "Software Developer",
-              why_fit: "Strong technical background based on resume experience",
-              existing_skills: ["Programming", "Problem-solving"],
-              missing_skills: ["Advanced frameworks", "System design", "Testing methodologies"],
-              learning_resources: [
-                {
-                  skill: "Advanced frameworks",
-                  course_name: "React - The Complete Guide",
-                  link: "https://www.udemy.com/course/react-the-complete-guide-incl-redux/",
-                  provider: "Udemy"
-                }
-              ]
+          console.log('Failed to parse career JSON, retrying with simpler prompt:', e);
+          
+          // Retry with simpler prompt
+          const simplePrompt = `Based on this resume, suggest 3 different job roles. Return as JSON array:
+[{"title": "Job Title", "why_fit": "explanation", "existing_skills": ["skill1"], "missing_skills": ["skill2"], "learning_resources": [{"skill": "skill2", "course_name": "Course", "provider": "Provider", "link": "https://example.com"}]}]
+
+Resume: ${extractedText.substring(0, 500)}`;
+
+          const retryResponse = await fetch('https://api.cohere.com/v1/chat', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${cohereKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'command-r-plus',
+              message: simplePrompt,
+              temperature: 0.2,
+            }),
+          });
+
+          if (retryResponse.ok) {
+            const retryData = await retryResponse.json();
+            try {
+              let cleanRetryText = retryData.text.trim();
+              if (cleanRetryText.startsWith('```json')) {
+                cleanRetryText = cleanRetryText.replace(/```json/g, '').replace(/```/g, '');
+              }
+              careerPaths = JSON.parse(cleanRetryText);
+            } catch (e2) {
+              console.log('Retry parsing also failed, using intelligent fallback');
+              // Use skills to create diverse fallback
+              careerPaths = createIntelligentFallback(extractedSkills);
             }
-          ];
+          }
         }
       } else {
-        console.log('Career response not ok, using fallback');
-        careerPaths = [];
+        console.log('Career response not ok:', careerResponse.status);
+        careerPaths = createIntelligentFallback(extractedSkills);
       }
     } catch (e) {
       console.log('Career analysis failed:', e);
-      careerPaths = [];
+      careerPaths = createIntelligentFallback(extractedSkills);
     }
 
-    // If career analysis failed completely, retry with stricter prompt
-    if (careerPaths.length === 0) {
-      try {
-        console.log('Retrying career analysis with stricter prompt...');
-        const retryPrompt = `You MUST return valid JSON. ${careerPrompt}`;
-        
-        const retryResponse = await fetch('https://api.cohere.com/v1/chat', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${cohereKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'command-r-plus',
-            message: retryPrompt,
-            temperature: 0.3,
-          }),
+    // Helper function to create intelligent fallback based on skills
+    function createIntelligentFallback(skills) {
+      const skillsLower = skills.map(s => s.toLowerCase());
+      const fallbackPaths = [];
+      
+      // Determine career paths based on skills
+      if (skillsLower.some(s => ['python', 'java', 'javascript', 'programming', 'coding'].includes(s))) {
+        fallbackPaths.push({
+          title: "Software Developer",
+          match_percentage: 80,
+          why_fit: "Your programming skills and technical background make you suitable for development roles",
+          existing_skills: skills.filter(s => ['python', 'java', 'javascript', 'programming'].includes(s.toLowerCase())),
+          missing_skills: ["System Design", "Testing", "DevOps"],
+          salary_range: "$60k-$100k",
+          growth_potential: "High",
+          learning_resources: [{
+            skill: "System Design",
+            course_name: "System Design Interview",
+            provider: "Educative",
+            link: "https://www.educative.io/courses/grokking-the-system-design-interview"
+          }]
         });
-
-        if (retryResponse.ok) {
-          const retryData = await retryResponse.json();
-          try {
-            careerPaths = JSON.parse(retryData.text);
-          } catch (e) {
-            console.log('Retry also failed, showing error to user');
-            careerPaths = [];
-          }
-        }
-      } catch (e) {
-        console.log('Career retry failed:', e);
-        careerPaths = [];
       }
+      
+      if (skillsLower.some(s => ['data', 'analysis', 'sql', 'excel', 'analytics'].includes(s))) {
+        fallbackPaths.push({
+          title: "Data Analyst",
+          match_percentage: 75,
+          why_fit: "Your analytical skills and data experience align with data analyst roles",
+          existing_skills: skills.filter(s => ['data', 'analysis', 'sql', 'excel'].includes(s.toLowerCase())),
+          missing_skills: ["Advanced SQL", "Tableau", "Statistics"],
+          salary_range: "$50k-$80k",
+          growth_potential: "High",
+          learning_resources: [{
+            skill: "Tableau",
+            course_name: "Tableau Desktop Specialist",
+            provider: "Tableau",
+            link: "https://www.tableau.com/learn/training"
+          }]
+        });
+      }
+      
+      if (skillsLower.some(s => ['management', 'leadership', 'project', 'team'].includes(s))) {
+        fallbackPaths.push({
+          title: "Project Manager",
+          match_percentage: 70,
+          why_fit: "Your leadership and project management skills are valuable for PM roles",
+          existing_skills: skills.filter(s => ['management', 'leadership', 'project'].includes(s.toLowerCase())),
+          missing_skills: ["Agile Methodology", "Stakeholder Management", "Risk Assessment"],
+          salary_range: "$55k-$90k",
+          growth_potential: "High",
+          learning_resources: [{
+            skill: "Agile Methodology",
+            course_name: "Agile Project Management",
+            provider: "Coursera",
+            link: "https://www.coursera.org/specializations/agile-development"
+          }]
+        });
+      }
+      
+      // Always add a general role as fallback
+      if (fallbackPaths.length === 0) {
+        fallbackPaths.push({
+          title: "Business Analyst",
+          match_percentage: 65,
+          why_fit: "Your analytical thinking and communication skills suit business analysis roles",
+          existing_skills: skills.slice(0, 3),
+          missing_skills: ["Business Process Mapping", "Requirements Gathering", "SQL"],
+          salary_range: "$45k-$75k",
+          growth_potential: "Medium",
+          learning_resources: [{
+            skill: "Business Process Mapping",
+            course_name: "Business Analysis Fundamentals",
+            provider: "Udemy",
+            link: "https://www.udemy.com/course/business-analysis/"
+          }]
+        });
+      }
+      
+      return fallbackPaths.slice(0, 3); // Return max 3 paths
     }
 
     // Job Keywords
