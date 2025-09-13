@@ -53,43 +53,87 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="w-full max-w-md p-8">
-        <h1 className="text-2xl font-bold text-center mb-6">
-          {isSignUp ? "Sign Up" : "Sign In"}
-        </h1>
-        <form onSubmit={handleAuth} className="space-y-4">
-          <Input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <Input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          <Button 
-            type="submit" 
-            className="w-full gradient-primary text-white"
-            disabled={loading}
-          >
-            {loading ? "Loading..." : (isSignUp ? "Sign Up" : "Sign In")}
-          </Button>
-        </form>
-        <p className="text-center mt-4">
-          {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
-          <button
-            onClick={() => setIsSignUp(!isSignUp)}
-            className="text-primary hover:underline"
-          >
-            {isSignUp ? "Sign In" : "Sign Up"}
-          </button>
-        </p>
-      </Card>
+      <div className="w-full max-w-md">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-foreground mb-2">
+            Resume Mentor
+          </h1>
+          <p className="text-muted-foreground">
+            {isSignUp ? "Create your account to get started" : "Welcome back! Sign in to continue"}
+          </p>
+        </div>
+
+        {/* Auth Card */}
+        <Card className="p-8 card-shadow-lg animate-fade-in">
+          <div className="text-center mb-6">
+            <h2 className="text-xl font-semibold text-foreground">
+              {isSignUp ? "Sign Up" : "Sign In"}
+            </h2>
+          </div>
+
+          <form onSubmit={handleAuth} className="space-y-5">
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="email" className="text-sm font-medium text-foreground mb-2 block">
+                  Email Address
+                </label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="Enter your email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="h-11"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="password" className="text-sm font-medium text-foreground mb-2 block">
+                  Password
+                </label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="h-11"
+                />
+              </div>
+            </div>
+
+            <Button 
+              type="submit" 
+              variant="yellow"
+              size="lg"
+              className="w-full font-semibold"
+              disabled={loading}
+            >
+              {loading ? "Loading..." : (isSignUp ? "Create Account" : "Sign In")}
+            </Button>
+          </form>
+
+          <div className="mt-6 text-center">
+            <p className="text-sm text-muted-foreground">
+              {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
+              <button
+                onClick={() => setIsSignUp(!isSignUp)}
+                className="text-primary hover:text-primary-dark font-medium hover:underline transition-colors"
+              >
+                {isSignUp ? "Sign In" : "Sign Up"}
+              </button>
+            </p>
+          </div>
+        </Card>
+
+        {/* Footer */}
+        <div className="text-center mt-6 text-xs text-muted-foreground">
+          <p>By continuing, you agree to our Terms of Service and Privacy Policy</p>
+        </div>
+      </div>
     </div>
   );
 };

@@ -29,6 +29,12 @@
     --danger: 0 84% 60%;
     --danger-foreground: 0 0% 100%;
     
+    /* Yellow Theme Colors */
+    --yellow: 45 93% 47%;
+    --yellow-foreground: 0 0% 100%;
+    --yellow-light: 45 93% 55%;
+    --yellow-dark: 45 93% 40%;
+    
     /* Card System */
     --card: 0 0% 100%;
     --card-foreground: 230 23% 9%;
