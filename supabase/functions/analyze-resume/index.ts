@@ -163,6 +163,7 @@ serve(async (req) => {
     const reviewPrompt = `Analyze this resume and provide feedback in strict JSON format. Return ONLY valid JSON with no additional text or formatting:
 
 {
+  "ats_score": number between 0-100 based on ATS optimization,
   "strengths": ["list of 3-4 strengths"],
   "weaknesses": ["list of 3-4 areas for improvement"], 
   "ats_suggestions": ["list of 3-4 ATS optimization tips"],
@@ -219,6 +220,7 @@ ${extractedText}`;
           } catch (e2) {
             console.log('Second JSON parse failed, using fallback');
             analysis = {
+              ats_score: 60,
               strengths: ["Resume uploaded successfully"],
               weaknesses: ["Analysis formatting needs improvement"],
               ats_suggestions: ["Consider restructuring content"],
@@ -592,7 +594,7 @@ ${extractedText}`;
             original_filename: file.name,
             extracted_text: extractedText,
             analysis: { ...analysis, career_paths: careerPaths, keywords },
-            ats_score: 85,
+            ats_score: analysis.ats_score || 75,
             suggestions: analysis.improvements || []
           })
           .select()

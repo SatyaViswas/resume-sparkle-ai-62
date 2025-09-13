@@ -185,11 +185,33 @@ const History = () => {
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Button variant="outline" size="sm">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => window.open(`/resume-reviewer?scan=${item.id}`, '_blank')}
+                        >
                           <Eye className="w-4 h-4 mr-2" />
                           View
                         </Button>
-                        <Button variant="outline" size="sm">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            const dataStr = JSON.stringify({
+                              filename: item.original_filename,
+                              ats_score: item.ats_score,
+                              analysis: item.analysis,
+                              date: new Date(item.created_at).toLocaleDateString()
+                            }, null, 2);
+                            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                            const url = URL.createObjectURL(dataBlob);
+                            const link = document.createElement('a');
+                            link.href = url;
+                            link.download = `${item.original_filename}_analysis.json`;
+                            link.click();
+                            URL.revokeObjectURL(url);
+                          }}
+                        >
                           <Download className="w-4 h-4 mr-2" />
                           Export
                         </Button>
