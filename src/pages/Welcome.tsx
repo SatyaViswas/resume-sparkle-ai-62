@@ -45,16 +45,8 @@ const Welcome = () => {
           </div>
         </div>
 
-        {/* CTA Buttons */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Button
-            size="lg"
-            className="bg-white text-primary font-semibold px-8 py-6 text-lg hover:bg-white/90 transition-all duration-300 hover:scale-105 card-shadow-lg"
-            onClick={() => navigate("/dashboard")}
-          >
-            Continue to App
-            <ArrowRight className="ml-2 w-5 h-5" />
-          </Button>
+        {/* CTA Button */}
+        <div className="flex justify-center">
           <Button
             size="lg"
             variant="outline"

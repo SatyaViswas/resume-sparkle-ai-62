@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -11,6 +12,7 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -38,6 +40,12 @@ const Auth = () => {
           password,
         });
         if (error) throw error;
+        
+        if (rememberMe) {
+          // Store session persistence preference
+          localStorage.setItem('supabase-remember-me', 'true');
+        }
+        
         navigate("/dashboard");
       }
     } catch (error: any) {
@@ -105,11 +113,24 @@ const Auth = () => {
               </div>
             </div>
 
+            {!isSignUp && (
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="remember-me"
+                  checked={rememberMe}
+                  onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                />
+                <label htmlFor="remember-me" className="text-sm text-foreground cursor-pointer">
+                  Remember me
+                </label>
+              </div>
+            )}
+
             <Button 
               type="submit" 
               variant="yellow"
               size="lg"
-              className="w-full font-semibold"
+              className="w-full font-semibold px-8 py-6 text-lg"
               disabled={loading}
             >
               {loading ? "Loading..." : (isSignUp ? "Create Account" : "Sign In")}
