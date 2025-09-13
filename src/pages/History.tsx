@@ -17,13 +17,17 @@ import {
   CheckCircle,
   AlertTriangle,
   Compass,
-  Wrench
+  Wrench,
+  Briefcase,
+  MapPin,
+  ExternalLink
 } from "lucide-react";
 
 const History = () => {
   const [expandedItems, setExpandedItems] = useState<number[]>([]);
   const [historyData, setHistoryData] = useState<any[]>([]);
   const [selectedAnalysis, setSelectedAnalysis] = useState<any>(null);
+  const [jobApplications, setJobApplications] = useState<{[key: string]: any[]}>({});
   const [stats, setStats] = useState({
     total: 0,
     bestScore: 0,
@@ -50,6 +54,29 @@ const History = () => {
 
       if (scans) {
         setHistoryData(scans);
+        
+        // Load job applications for each scan
+        const jobsPromises = scans.map(async (scan) => {
+          const scanDate = new Date(scan.created_at);
+          const endDate = new Date(scanDate.getTime() + 5 * 60 * 1000); // 5 minutes after scan
+          
+          const { data: jobs } = await supabase
+            .from('job_applications')
+            .select('*')
+            .eq('user_id', user.id)
+            .gte('applied_at', scan.created_at)
+            .lte('applied_at', endDate.toISOString())
+            .limit(5);
+          
+          return { scanId: scan.id, jobs: jobs || [] };
+        });
+        
+        const jobResults = await Promise.all(jobsPromises);
+        const jobsMap = {};
+        jobResults.forEach(({ scanId, jobs }) => {
+          jobsMap[scanId] = jobs;
+        });
+        setJobApplications(jobsMap);
         
         // Calculate stats
         const scores = scans.map(scan => scan.ats_score || 0);
@@ -96,6 +123,8 @@ const History = () => {
 
   const exportToPDF = (item: any) => {
     const analysis = item.analysis || {};
+    const careerPaths = analysis.career_paths || [];
+    const jobs = jobApplications[item.id] || [];
     
     // Create a new window for printing
     const printWindow = window.open('', '_blank');
@@ -152,6 +181,44 @@ const History = () => {
             .strengths .list-item:before { color: #22c55e; }
             .weaknesses .list-item:before { color: #f59e0b; }
             .improvements .list-item:before { color: #3b82f6; }
+            .career-path {
+              margin-bottom: 20px;
+              padding: 15px;
+              background: #f8fafc;
+              border-radius: 8px;
+              border-left: 4px solid #3b82f6;
+            }
+            .career-title {
+              font-weight: bold;
+              font-size: 1.1em;
+              color: #1f2937;
+              margin-bottom: 8px;
+            }
+            .career-fit {
+              color: #6b7280;
+              margin-bottom: 10px;
+            }
+            .job-item {
+              margin-bottom: 15px;
+              padding: 12px;
+              background: #f1f5f9;
+              border-radius: 6px;
+              border: 1px solid #e2e8f0;
+            }
+            .job-title {
+              font-weight: bold;
+              color: #1f2937;
+              margin-bottom: 4px;
+            }
+            .job-company {
+              color: #3b82f6;
+              font-size: 0.9em;
+              margin-bottom: 4px;
+            }
+            .job-location {
+              color: #6b7280;
+              font-size: 0.85em;
+            }
             .meta {
               background: #f9fafb;
               padding: 15px;
@@ -196,6 +263,40 @@ const History = () => {
               `<div class="list-item">${improvement}</div>`
             ).join('')}
           </div>
+
+          ${careerPaths.length > 0 ? `
+            <div class="section">
+              <h3>🎯 Suggested Career Paths</h3>
+              ${careerPaths.map(path => `
+                <div class="career-path">
+                  <div class="career-title">${path.title}</div>
+                  <div class="career-fit">${path.why_fit}</div>
+                  ${path.starter_tasks ? `
+                    <div style="margin-top: 10px;">
+                      <strong>Key Responsibilities:</strong>
+                      <ul style="margin: 5px 0 0 20px;">
+                        ${path.starter_tasks.map(task => `<li style="margin-bottom: 3px;">${task}</li>`).join('')}
+                      </ul>
+                    </div>
+                  ` : ''}
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+
+          ${jobs.length > 0 ? `
+            <div class="section">
+              <h3>💼 Suggested Job Opportunities</h3>
+              ${jobs.map(job => `
+                <div class="job-item">
+                  <div class="job-title">${job.job_title}</div>
+                  <div class="job-company">${job.company}</div>
+                  ${job.location ? `<div class="job-location">${job.location}</div>` : ''}
+                  ${job.job_url ? `<div style="margin-top: 8px;"><a href="${job.job_url}" style="color: #3b82f6; text-decoration: none; font-size: 0.85em;">View Job Posting →</a></div>` : ''}
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
 
           <div class="section">
             <h3>📋 Analysis Summary</h3>
@@ -388,6 +489,89 @@ const History = () => {
                                   ))}
                                 </ul>
                               </Card>
+
+                              {/* Career Paths */}
+                              {(analysis.career_paths && analysis.career_paths.length > 0) && (
+                                <Card className="p-6">
+                                  <div className="flex items-center space-x-3 mb-4">
+                                    <Compass className="w-6 h-6 text-secondary" />
+                                    <h3 className="text-lg font-semibold">Suggested Career Paths</h3>
+                                  </div>
+                                  <div className="space-y-4">
+                                    {analysis.career_paths.map((path, i) => (
+                                      <div key={i} className="p-4 border border-border rounded-lg">
+                                        <h4 className="font-semibold text-foreground mb-2">{path.title}</h4>
+                                        <p className="text-sm text-muted-foreground mb-3">{path.why_fit}</p>
+                                        {path.starter_tasks && (
+                                          <div>
+                                            <p className="text-xs font-medium text-muted-foreground mb-2">Key Responsibilities:</p>
+                                            <ul className="text-xs text-muted-foreground space-y-1">
+                                              {path.starter_tasks.slice(0, 3).map((task, j) => (
+                                                <li key={j} className="flex items-start space-x-2">
+                                                  <span className="w-1 h-1 bg-secondary rounded-full mt-2 flex-shrink-0" />
+                                                  <span>{task}</span>
+                                                </li>
+                                              ))}
+                                            </ul>
+                                          </div>
+                                        )}
+                                        {path.learning_link && (
+                                          <a 
+                                            href={path.learning_link} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center space-x-1 text-xs text-primary hover:underline mt-2"
+                                          >
+                                            <ExternalLink className="w-3 h-3" />
+                                            <span>Learning Resources</span>
+                                          </a>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </Card>
+                              )}
+
+                              {/* Job Suggestions */}
+                              {(jobApplications[item.id] && jobApplications[item.id].length > 0) && (
+                                <Card className="p-6">
+                                  <div className="flex items-center space-x-3 mb-4">
+                                    <Briefcase className="w-6 h-6 text-primary" />
+                                    <h3 className="text-lg font-semibold">Suggested Job Opportunities</h3>
+                                  </div>
+                                  <div className="space-y-4">
+                                    {jobApplications[item.id].slice(0, 5).map((job, i) => (
+                                      <div key={i} className="p-4 border border-border rounded-lg hover:bg-muted/30 transition-colors">
+                                        <div className="flex items-start justify-between">
+                                          <div className="flex-1">
+                                            <h4 className="font-semibold text-foreground mb-1">{job.job_title}</h4>
+                                            <p className="text-sm text-primary font-medium mb-2">{job.company}</p>
+                                            {job.location && (
+                                              <div className="flex items-center space-x-1 text-xs text-muted-foreground mb-2">
+                                                <MapPin className="w-3 h-3" />
+                                                <span>{job.location}</span>
+                                              </div>
+                                            )}
+                                            {job.salary && (
+                                              <p className="text-xs text-muted-foreground">{job.salary}</p>
+                                            )}
+                                          </div>
+                                          {job.job_url && (
+                                            <a 
+                                              href={job.job_url} 
+                                              target="_blank" 
+                                              rel="noopener noreferrer"
+                                              className="text-primary hover:text-primary/80 ml-2 flex-shrink-0"
+                                            >
+                                              <ExternalLink className="w-4 h-4" />
+                                            </a>
+                                          )}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </Card>
+                              )}
 
                               {/* Analysis Date */}
                               <div className="text-center text-sm text-muted-foreground">
