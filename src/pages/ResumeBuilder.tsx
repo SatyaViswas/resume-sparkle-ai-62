@@ -4,13 +4,22 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { FileText, Download, Eye, MapPin, Phone, Mail, Globe, Github, Linkedin, Award, BookOpen } from "lucide-react";
 import { FresherTemplate } from "@/components/resume-templates/FresherTemplate";
 import { ProfessionalTemplate } from "@/components/resume-templates/ProfessionalTemplate";
 import { CareerSwitcherTemplate } from "@/components/resume-templates/CareerSwitcherTemplate";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
+import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
 
 const ResumeBuilder = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const resumeRef = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState<"details" | "template" | "preview">("details");
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -70,6 +79,188 @@ const ResumeBuilder = () => {
   const selectTemplate = (templateId: string) => {
     setSelectedTemplate(templateId);
     setStep("preview");
+  };
+
+  const downloadPDF = async () => {
+    if (!resumeRef.current) return;
+
+    try {
+      const canvas = await html2canvas(resumeRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff'
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgWidth = 210;
+      const pageHeight = 295;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+
+      let position = 0;
+
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      pdf.save(`${formData.fullName || 'resume'}.pdf`);
+      toast({
+        title: "PDF Downloaded",
+        description: "Your resume has been downloaded as PDF",
+      });
+    } catch (error) {
+      toast({
+        title: "Download Failed",
+        description: "Failed to generate PDF. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const downloadDOCX = async () => {
+    try {
+      const doc = new Document({
+        sections: [{
+          properties: {},
+          children: [
+            new Paragraph({
+              text: formData.fullName || "Your Name",
+              heading: HeadingLevel.TITLE,
+            }),
+            new Paragraph({
+              children: [
+                new TextRun(`${formData.email} | ${formData.phone}`),
+                formData.linkedin ? new TextRun(` | ${formData.linkedin}`) : new TextRun(""),
+                formData.location ? new TextRun(` | ${formData.location}`) : new TextRun(""),
+              ],
+            }),
+            new Paragraph({
+              text: "",
+            }),
+            ...(formData.summary ? [
+              new Paragraph({
+                text: "PROFESSIONAL SUMMARY",
+                heading: HeadingLevel.HEADING_1,
+              }),
+              new Paragraph({
+                text: formData.summary,
+              }),
+              new Paragraph({
+                text: "",
+              }),
+            ] : []),
+            ...(formData.skills ? [
+              new Paragraph({
+                text: "SKILLS",
+                heading: HeadingLevel.HEADING_1,
+              }),
+              new Paragraph({
+                text: formData.skills,
+              }),
+              new Paragraph({
+                text: "",
+              }),
+            ] : []),
+            ...(formData.experience ? [
+              new Paragraph({
+                text: "EXPERIENCE",
+                heading: HeadingLevel.HEADING_1,
+              }),
+              new Paragraph({
+                text: formData.experience,
+              }),
+              new Paragraph({
+                text: "",
+              }),
+            ] : []),
+            ...(formData.education ? [
+              new Paragraph({
+                text: "EDUCATION",
+                heading: HeadingLevel.HEADING_1,
+              }),
+              new Paragraph({
+                text: formData.education,
+              }),
+            ] : []),
+          ],
+        }],
+      });
+
+      const blob = await Packer.toBlob(doc);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${formData.fullName || 'resume'}.docx`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "DOCX Downloaded",
+        description: "Your resume has been downloaded as Word document",
+      });
+    } catch (error) {
+      toast({
+        title: "Download Failed",
+        description: "Failed to generate DOCX. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const saveResume = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to save your resume",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const resumeData = {
+        title: `${formData.fullName || 'Untitled'} - ${templates.find(t => t.id === selectedTemplate)?.name}`,
+        user_id: user.id,
+        personal_details: {
+          fullName: formData.fullName,
+          email: formData.email,
+          phone: formData.phone,
+          linkedin: formData.linkedin,
+          github: formData.github,
+          portfolio: formData.portfolio,
+          location: formData.location,
+        },
+        skills: formData.skills.split(',').map(skill => skill.trim()).filter(Boolean),
+        work_experience: formData.experience ? [formData.experience] : [],
+        education: formData.education ? [formData.education] : [],
+        projects: formData.projects ? [formData.projects] : [],
+        certifications: formData.certifications ? [formData.certifications] : [],
+      };
+
+      const { error } = await supabase
+        .from('resumes')
+        .insert(resumeData);
+
+      if (error) throw error;
+
+      toast({
+        title: "Resume Saved",
+        description: "Your resume has been saved successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Save Failed",
+        description: "Failed to save resume. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -389,7 +580,7 @@ const ResumeBuilder = () => {
                 </div>
                 
                 <Card className="card-shadow-lg overflow-hidden">
-                  <div className="bg-white min-h-[700px] max-h-[800px] overflow-y-auto">
+                  <div ref={resumeRef} className="bg-white min-h-[700px] max-h-[800px] overflow-y-auto">
                     {selectedTemplate === "fresher" && <FresherTemplate data={formData} />}
                     {selectedTemplate === "professional" && <ProfessionalTemplate data={formData} />}
                     {selectedTemplate === "career-switcher" && <CareerSwitcherTemplate data={formData} />}
@@ -427,7 +618,7 @@ const ResumeBuilder = () => {
                         <h3 className="font-semibold text-foreground text-sm">Download PDF</h3>
                         <p className="text-xs text-muted-foreground">ATS-friendly format</p>
                       </div>
-                      <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white">
+                      <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white" onClick={downloadPDF}>
                         PDF
                       </Button>
                     </div>
@@ -442,7 +633,7 @@ const ResumeBuilder = () => {
                         <h3 className="font-semibold text-foreground text-sm">Download DOCX</h3>
                         <p className="text-xs text-muted-foreground">Editable Word document</p>
                       </div>
-                      <Button size="sm" variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white">
+                      <Button size="sm" variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white" onClick={downloadDOCX}>
                         DOCX
                       </Button>
                     </div>
@@ -457,7 +648,7 @@ const ResumeBuilder = () => {
                   <Button variant="outline" className="w-full" onClick={() => setStep("details")}>
                     ← Edit Details
                   </Button>
-                  <Button className="w-full bg-green-600 hover:bg-green-700 text-white">
+                  <Button className="w-full bg-green-600 hover:bg-green-700 text-white" onClick={saveResume}>
                     Save Resume
                   </Button>
                 </div>
