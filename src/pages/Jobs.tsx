@@ -1,3 +1,4 @@
+import AppHeader from "@/components/AppHeader";
 import Navbar from "@/components/Navbar";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -84,6 +85,7 @@ const Jobs = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <AppHeader />
       <Navbar />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

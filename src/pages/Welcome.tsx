@@ -1,9 +1,19 @@
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, Brain, FileText, Target, Users } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useEffect } from "react";
 
 const Welcome = () => {
   const navigate = useNavigate();
+  const { user, loading } = useAuth();
+
+  useEffect(() => {
+    // If user is logged in, redirect to dashboard
+    if (user && !loading) {
+      navigate("/dashboard");
+    }
+  }, [user, loading, navigate]);
 
   return (
     <div className="min-h-screen hero-gradient flex flex-col items-center justify-center p-4">
@@ -49,11 +59,12 @@ const Welcome = () => {
         <div className="flex justify-center">
           <Button
             size="lg"
-            variant="outline"
-            className="border-white/20 text-white font-semibold px-8 py-6 text-lg hover:bg-white/10 transition-all duration-300 hover:scale-105"
+            variant="yellow"
+            className="font-semibold px-8 py-6 text-lg transition-all duration-300 hover:scale-105 card-shadow-lg"
             onClick={() => navigate("/auth")}
           >
-            Sign In / Sign Up
+            Get Started
+            <ArrowRight className="ml-2 w-5 h-5" />
           </Button>
         </div>
 
