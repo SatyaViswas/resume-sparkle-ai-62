@@ -5,7 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useState } from "react";
-import { FileText, Download, Eye } from "lucide-react";
+import { FileText, Download, Eye, MapPin, Phone, Mail, Globe, Github, Linkedin, Award, BookOpen } from "lucide-react";
+import { FresherTemplate } from "@/components/resume-templates/FresherTemplate";
+import { ProfessionalTemplate } from "@/components/resume-templates/ProfessionalTemplate";
+import { CareerSwitcherTemplate } from "@/components/resume-templates/CareerSwitcherTemplate";
 
 const ResumeBuilder = () => {
   const [step, setStep] = useState<"details" | "template" | "preview">("details");
@@ -14,31 +17,45 @@ const ResumeBuilder = () => {
     fullName: "",
     email: "",
     phone: "",
+    linkedin: "",
+    github: "",
+    portfolio: "",
+    location: "",
     education: "",
     experience: "",
     skills: "",
     projects: "",
     summary: "",
+    certifications: "",
+    languages: "",
+    achievements: "",
+    coursework: "",
   });
 
   const templates = [
     {
       id: "fresher",
-      name: "Fresher",
-      description: "Perfect for new graduates and entry-level positions",
-      preview: "Clean, modern layout with emphasis on education and projects"
+      name: "Fresher Resume",
+      description: "Perfect for students and recent graduates",
+      preview: "Education-focused with projects and coursework emphasis",
+      targetLength: "1 page",
+      bestFor: "Entry-level positions, internships, first jobs"
     },
     {
       id: "professional",
-      name: "Professional",
-      description: "Ideal for experienced professionals",
-      preview: "Classic design with focus on work experience and achievements"
+      name: "Professional Resume",
+      description: "Ideal for mid-level working professionals",
+      preview: "Experience-driven with quantified achievements",
+      targetLength: "1-2 pages",
+      bestFor: "Senior roles, career advancement, leadership positions"
     },
     {
       id: "career-switcher",
-      name: "Career Switcher",
-      description: "Great for transitioning to new industries",
-      preview: "Skills-focused layout highlighting transferable abilities"
+      name: "Career Switcher Resume",
+      description: "For professionals transitioning to new fields",
+      preview: "Skills-focused highlighting transferable abilities",
+      targetLength: "1 page",
+      bestFor: "Industry transitions, career pivots, new skill sets"
     }
   ];
 
@@ -92,13 +109,19 @@ const ResumeBuilder = () => {
         </div>
 
         {step === "details" && (
-          <div className="max-w-4xl mx-auto animate-fade-in">
+          <div className="max-w-6xl mx-auto animate-fade-in">
             <Card className="p-8 card-shadow-lg">
               <h2 className="text-2xl font-bold text-foreground mb-6">Enter Your Details</h2>
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-4">
+              
+              {/* Contact Information */}
+              <div className="mb-8">
+                <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center">
+                  <Phone className="w-5 h-5 mr-2" />
+                  Contact Information
+                </h3>
+                <div className="grid md:grid-cols-3 gap-4">
                   <div>
-                    <Label htmlFor="fullName">Full Name</Label>
+                    <Label htmlFor="fullName">Full Name *</Label>
                     <Input
                       id="fullName"
                       value={formData.fullName}
@@ -107,7 +130,7 @@ const ResumeBuilder = () => {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email">Email *</Label>
                     <Input
                       id="email"
                       type="email"
@@ -117,7 +140,7 @@ const ResumeBuilder = () => {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="phone">Phone</Label>
+                    <Label htmlFor="phone">Phone *</Label>
                     <Input
                       id="phone"
                       value={formData.phone}
@@ -126,62 +149,183 @@ const ResumeBuilder = () => {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="skills">Skills</Label>
-                    <Textarea
-                      id="skills"
-                      value={formData.skills}
-                      onChange={(e) => handleInputChange("skills", e.target.value)}
-                      placeholder="JavaScript, React, Node.js, Python..."
-                      rows={3}
+                    <Label htmlFor="location">Location</Label>
+                    <Input
+                      id="location"
+                      value={formData.location}
+                      onChange={(e) => handleInputChange("location", e.target.value)}
+                      placeholder="New York, NY"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="linkedin">LinkedIn Profile</Label>
+                    <Input
+                      id="linkedin"
+                      value={formData.linkedin}
+                      onChange={(e) => handleInputChange("linkedin", e.target.value)}
+                      placeholder="linkedin.com/in/johndoe"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="github">GitHub Profile</Label>
+                    <Input
+                      id="github"
+                      value={formData.github}
+                      onChange={(e) => handleInputChange("github", e.target.value)}
+                      placeholder="github.com/johndoe"
+                    />
+                  </div>
+                  <div className="md:col-span-3">
+                    <Label htmlFor="portfolio">Portfolio/Website</Label>
+                    <Input
+                      id="portfolio"
+                      value={formData.portfolio}
+                      onChange={(e) => handleInputChange("portfolio", e.target.value)}
+                      placeholder="www.johndoe.com"
                     />
                   </div>
                 </div>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="education">Education</Label>
-                    <Textarea
-                      id="education"
-                      value={formData.education}
-                      onChange={(e) => handleInputChange("education", e.target.value)}
-                      placeholder="Bachelor of Science in Computer Science, University of Technology, 2020-2024"
-                      rows={3}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="experience">Experience</Label>
-                    <Textarea
-                      id="experience"
-                      value={formData.experience}
-                      onChange={(e) => handleInputChange("experience", e.target.value)}
-                      placeholder="Software Developer at TechCorp (2022-Present)..."
-                      rows={4}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="projects">Projects</Label>
-                    <Textarea
-                      id="projects"
-                      value={formData.projects}
-                      onChange={(e) => handleInputChange("projects", e.target.value)}
-                      placeholder="E-commerce Platform - Built with React and Node.js..."
-                      rows={3}
-                    />
-                  </div>
-                </div>
-                <div className="md:col-span-2">
-                  <Label htmlFor="summary">Professional Summary</Label>
+              </div>
+
+              {/* Professional Summary */}
+              <div className="mb-8">
+                <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center">
+                  <Eye className="w-5 h-5 mr-2" />
+                  Professional Summary
+                </h3>
+                <div>
+                  <Label htmlFor="summary">Professional Summary/Objective *</Label>
                   <Textarea
                     id="summary"
                     value={formData.summary}
                     onChange={(e) => handleInputChange("summary", e.target.value)}
-                    placeholder="Passionate software developer with 2+ years of experience..."
+                    placeholder="Passionate software developer with 2+ years of experience in full-stack development..."
+                    rows={4}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">2-3 sentences highlighting your key strengths and career goals</p>
+                </div>
+              </div>
+
+              {/* Skills */}
+              <div className="mb-8">
+                <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center">
+                  <Award className="w-5 h-5 mr-2" />
+                  Skills & Competencies
+                </h3>
+                <div>
+                  <Label htmlFor="skills">Technical & Soft Skills *</Label>
+                  <Textarea
+                    id="skills"
+                    value={formData.skills}
+                    onChange={(e) => handleInputChange("skills", e.target.value)}
+                    placeholder="JavaScript, React, Node.js, Python, Project Management, Communication, Problem Solving..."
+                    rows={3}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Separate skills with commas</p>
+                </div>
+              </div>
+
+              {/* Experience & Projects */}
+              <div className="mb-8">
+                <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center">
+                  <FileText className="w-5 h-5 mr-2" />
+                  Experience & Projects
+                </h3>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="experience">Work Experience</Label>
+                    <Textarea
+                      id="experience"
+                      value={formData.experience}
+                      onChange={(e) => handleInputChange("experience", e.target.value)}
+                      placeholder="Software Developer | TechCorp | 2022-Present&#10;• Developed 5+ web applications using React and Node.js&#10;• Increased user engagement by 30% through UI improvements"
+                      rows={6}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Include measurable achievements and impact</p>
+                  </div>
+                  <div>
+                    <Label htmlFor="projects">Projects/Portfolio</Label>
+                    <Textarea
+                      id="projects"
+                      value={formData.projects}
+                      onChange={(e) => handleInputChange("projects", e.target.value)}
+                      placeholder="E-commerce Platform | React, Node.js, MongoDB&#10;• Built full-stack application with user authentication&#10;• Implemented payment processing with Stripe integration"
+                      rows={6}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Academic projects, personal projects, or portfolio pieces</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Education & Development */}
+              <div className="mb-8">
+                <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center">
+                  <BookOpen className="w-5 h-5 mr-2" />
+                  Education & Professional Development
+                </h3>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="education">Education *</Label>
+                    <Textarea
+                      id="education"
+                      value={formData.education}
+                      onChange={(e) => handleInputChange("education", e.target.value)}
+                      placeholder="Bachelor of Science in Computer Science&#10;University of Technology | 2020-2024&#10;GPA: 3.8/4.0"
+                      rows={4}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="coursework">Relevant Coursework/Training</Label>
+                    <Textarea
+                      id="coursework"
+                      value={formData.coursework}
+                      onChange={(e) => handleInputChange("coursework", e.target.value)}
+                      placeholder="Data Structures, Algorithms, Web Development, Database Design, Machine Learning"
+                      rows={4}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Bootcamps, online courses, relevant coursework</p>
+                  </div>
+                  <div>
+                    <Label htmlFor="certifications">Certifications</Label>
+                    <Textarea
+                      id="certifications"
+                      value={formData.certifications}
+                      onChange={(e) => handleInputChange("certifications", e.target.value)}
+                      placeholder="AWS Certified Developer | 2023&#10;Google Analytics Certified | 2022"
+                      rows={3}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="languages">Languages</Label>
+                    <Textarea
+                      id="languages"
+                      value={formData.languages}
+                      onChange={(e) => handleInputChange("languages", e.target.value)}
+                      placeholder="English (Native), Spanish (Fluent), French (Conversational)"
+                      rows={3}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Additional Information */}
+              <div className="mb-8">
+                <h3 className="text-lg font-semibold text-foreground mb-4">Additional Information</h3>
+                <div>
+                  <Label htmlFor="achievements">Awards & Achievements</Label>
+                  <Textarea
+                    id="achievements"
+                    value={formData.achievements}
+                    onChange={(e) => handleInputChange("achievements", e.target.value)}
+                    placeholder="Dean's List (2022-2024)&#10;Hackathon Winner - TechCorp Innovation Challenge 2023&#10;Published research paper on Machine Learning applications"
                     rows={3}
                   />
                 </div>
               </div>
-              <div className="flex justify-end mt-8">
+
+              <div className="flex justify-end">
                 <Button onClick={generatePreview} className="gradient-primary text-white px-8">
-                  Generate Preview
+                  Continue to Templates
                 </Button>
               </div>
             </Card>
@@ -191,127 +335,145 @@ const ResumeBuilder = () => {
         {step === "template" && (
           <div className="animate-fade-in">
             <h2 className="text-2xl font-bold text-foreground mb-6 text-center">Choose Your Template</h2>
-            <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+            <p className="text-center text-muted-foreground mb-8">Select the template that best matches your career stage and goals</p>
+            
+            <div className="grid lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
               {templates.map((template) => (
                 <Card
                   key={template.id}
-                  className="p-6 card-shadow hover:card-shadow-lg transition-all duration-300 cursor-pointer hover:scale-105"
+                  className="p-6 card-shadow hover:card-shadow-lg transition-all duration-300 cursor-pointer hover:scale-[1.02] border-2 hover:border-primary/50"
                   onClick={() => selectTemplate(template.id)}
                 >
-                  <div className="aspect-[3/4] bg-gradient-to-br from-muted/50 to-muted rounded-lg mb-4 flex items-center justify-center">
-                    <FileText className="w-16 h-16 text-muted-foreground" />
+                  <div className="aspect-[3/4] bg-gradient-to-br from-primary/10 to-primary/5 rounded-lg mb-4 flex flex-col items-center justify-center p-4 border border-primary/20">
+                    <FileText className="w-16 h-16 text-primary mb-2" />
+                    <div className="text-center">
+                      <div className="text-xs font-medium text-primary mb-1">{template.targetLength}</div>
+                      <div className="text-xs text-muted-foreground">{template.bestFor}</div>
+                    </div>
                   </div>
-                  <h3 className="text-lg font-semibold text-foreground mb-2">{template.name}</h3>
+                  
+                  <h3 className="text-lg font-bold text-foreground mb-2">{template.name}</h3>
                   <p className="text-sm text-muted-foreground mb-3">{template.description}</p>
-                  <p className="text-xs text-muted-foreground">{template.preview}</p>
-                  <Button variant="outline" className="w-full mt-4">
-                    Select Template
+                  <p className="text-xs text-muted-foreground mb-4 italic">{template.preview}</p>
+                  
+                  <div className="space-y-2 mb-4">
+                    <div className="text-xs font-medium text-foreground">Best for:</div>
+                    <div className="text-xs text-muted-foreground">{template.bestFor}</div>
+                  </div>
+                  
+                  <Button className="w-full bg-primary hover:bg-primary/90 text-white">
+                    Select {template.name}
                   </Button>
                 </Card>
               ))}
             </div>
+            
             <div className="flex justify-center mt-8">
               <Button variant="outline" onClick={() => setStep("details")}>
-                Back to Details
+                ← Back to Details
               </Button>
             </div>
           </div>
         )}
 
-        {step === "preview" && (
+        {step === "preview" && selectedTemplate && (
           <div className="animate-fade-in">
-            <div className="grid lg:grid-cols-2 gap-8">
+            <div className="grid xl:grid-cols-3 lg:grid-cols-2 gap-8">
               {/* Live Preview */}
-              <div>
-                <h2 className="text-2xl font-bold text-foreground mb-6">Live Preview</h2>
-                <Card className="p-8 card-shadow-lg bg-white min-h-[600px]">
-                  <div className="space-y-6">
-                    <div className="text-center border-b border-gray-200 pb-4">
-                      <h1 className="text-2xl font-bold text-gray-900">{formData.fullName || "Your Name"}</h1>
-                      <p className="text-gray-600">{formData.email} | {formData.phone}</p>
-                    </div>
-                    
-                    {formData.summary && (
-                      <div>
-                        <h2 className="text-lg font-semibold text-gray-900 mb-2">Professional Summary</h2>
-                        <p className="text-sm text-gray-700">{formData.summary}</p>
-                      </div>
-                    )}
-                    
-                    {formData.experience && (
-                      <div>
-                        <h2 className="text-lg font-semibold text-gray-900 mb-2">Experience</h2>
-                        <p className="text-sm text-gray-700 whitespace-pre-line">{formData.experience}</p>
-                      </div>
-                    )}
-                    
-                    {formData.education && (
-                      <div>
-                        <h2 className="text-lg font-semibold text-gray-900 mb-2">Education</h2>
-                        <p className="text-sm text-gray-700">{formData.education}</p>
-                      </div>
-                    )}
-                    
-                    {formData.skills && (
-                      <div>
-                        <h2 className="text-lg font-semibold text-gray-900 mb-2">Skills</h2>
-                        <p className="text-sm text-gray-700">{formData.skills}</p>
-                      </div>
-                    )}
-                    
-                    {formData.projects && (
-                      <div>
-                        <h2 className="text-lg font-semibold text-gray-900 mb-2">Projects</h2>
-                        <p className="text-sm text-gray-700 whitespace-pre-line">{formData.projects}</p>
-                      </div>
-                    )}
+              <div className="xl:col-span-2">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold text-foreground">Live Preview</h2>
+                  <div className="text-sm text-muted-foreground">
+                    {templates.find(t => t.id === selectedTemplate)?.name} Template
+                  </div>
+                </div>
+                
+                <Card className="card-shadow-lg overflow-hidden">
+                  <div className="bg-white min-h-[700px] max-h-[800px] overflow-y-auto">
+                    {selectedTemplate === "fresher" && <FresherTemplate data={formData} />}
+                    {selectedTemplate === "professional" && <ProfessionalTemplate data={formData} />}
+                    {selectedTemplate === "career-switcher" && <CareerSwitcherTemplate data={formData} />}
                   </div>
                 </Card>
               </div>
 
-              {/* Export Options */}
+              {/* Export & Actions */}
               <div>
-                <h2 className="text-2xl font-bold text-foreground mb-6">Export Options</h2>
-                <div className="space-y-4">
-                  <Card className="p-6 card-shadow">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-danger/20 to-danger/10 flex items-center justify-center">
-                        <Download className="w-6 h-6 text-danger" />
+                <h2 className="text-2xl font-bold text-foreground mb-6">Export & Actions</h2>
+                
+                {/* Template Info */}
+                <Card className="p-4 mb-6 bg-primary/5 border-primary/20">
+                  <div className="text-sm">
+                    <div className="font-semibold text-primary mb-1">
+                      {templates.find(t => t.id === selectedTemplate)?.name}
+                    </div>
+                    <div className="text-muted-foreground text-xs">
+                      {templates.find(t => t.id === selectedTemplate)?.description}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-2">
+                      Target Length: {templates.find(t => t.id === selectedTemplate)?.targetLength}
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Export Options */}
+                <div className="space-y-4 mb-6">
+                  <Card className="p-4 card-shadow">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-500/20 to-red-600/10 flex items-center justify-center">
+                        <Download className="w-5 h-5 text-red-600" />
                       </div>
                       <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-foreground">Download PDF</h3>
-                        <p className="text-sm text-muted-foreground">High-quality PDF for job applications</p>
+                        <h3 className="font-semibold text-foreground text-sm">Download PDF</h3>
+                        <p className="text-xs text-muted-foreground">ATS-friendly format</p>
                       </div>
-                      <Button className="bg-danger text-white hover:bg-danger/90">
-                        Download PDF
+                      <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white">
+                        PDF
                       </Button>
                     </div>
                   </Card>
 
-                  <Card className="p-6 card-shadow">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-secondary/20 to-secondary/10 flex items-center justify-center">
-                        <FileText className="w-6 h-6 text-secondary" />
+                  <Card className="p-4 card-shadow">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500/20 to-blue-600/10 flex items-center justify-center">
+                        <FileText className="w-5 h-5 text-blue-600" />
                       </div>
                       <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-foreground">Download DOC</h3>
-                        <p className="text-sm text-muted-foreground">Editable Word document</p>
+                        <h3 className="font-semibold text-foreground text-sm">Download DOCX</h3>
+                        <p className="text-xs text-muted-foreground">Editable Word document</p>
                       </div>
-                      <Button variant="outline" className="border-secondary text-secondary hover:bg-secondary hover:text-white">
-                        Download DOC
+                      <Button size="sm" variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white">
+                        DOCX
                       </Button>
                     </div>
                   </Card>
                 </div>
 
-                <div className="flex space-x-4 mt-8">
-                  <Button variant="outline" onClick={() => setStep("template")}>
-                    Change Template
+                {/* Quick Actions */}
+                <div className="space-y-3">
+                  <Button variant="outline" className="w-full" onClick={() => setStep("template")}>
+                    ← Change Template
                   </Button>
-                  <Button variant="outline" onClick={() => setStep("details")}>
-                    Edit Details
+                  <Button variant="outline" className="w-full" onClick={() => setStep("details")}>
+                    ← Edit Details
+                  </Button>
+                  <Button className="w-full bg-green-600 hover:bg-green-700 text-white">
+                    Save Resume
                   </Button>
                 </div>
+
+                {/* Tips */}
+                <Card className="p-4 mt-6 bg-amber-50 border-amber-200">
+                  <div className="text-xs">
+                    <div className="font-semibold text-amber-800 mb-2">💡 Pro Tips:</div>
+                    <ul className="text-amber-700 space-y-1">
+                      <li>• Use action verbs and quantify achievements</li>
+                      <li>• Keep it concise and relevant to the job</li>
+                      <li>• Proofread for spelling and grammar</li>
+                      <li>• Tailor your resume for each application</li>
+                    </ul>
+                  </div>
+                </Card>
               </div>
             </div>
           </div>
