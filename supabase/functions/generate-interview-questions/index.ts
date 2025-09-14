@@ -21,7 +21,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { userId, resumeText, targetRole } = await req.json();
+    const { userId, resumeText, targetRole, extractedSkills, careerPaths, analysisData } = await req.json();
 
     console.log('Generating questions for user:', userId || 'guest', 'role:', targetRole);
 
@@ -31,12 +31,31 @@ serve(async (req) => {
       throw new Error('Cohere API key not configured');
     }
 
-    const questionsPrompt = `Generate 6-7 interview questions for a ${targetRole || 'software developer'} position based on this resume. 
+    // Build context from resume analysis
+    const skillsContext = extractedSkills && extractedSkills.length > 0 
+      ? `Key Skills: ${extractedSkills.join(', ')}`
+      : '';
+    
+    const careerContext = careerPaths && careerPaths.length > 0
+      ? `Suggested Career Paths: ${careerPaths.map(path => `${path.title} (${path.match_percentage}% match)`).join(', ')}`
+      : '';
+    
+    const strengthsContext = analysisData?.strengths 
+      ? `Key Strengths: ${analysisData.strengths.join(', ')}`
+      : '';
+
+    const questionsPrompt = `Generate 6-7 interview questions for a ${targetRole || 'software developer'} position based on this resume analysis. 
     
     Include a mix of:
-    - 2-3 behavioral questions (teamwork, challenges, achievements)
-    - 2-3 technical questions (skills, problem-solving, technical knowledge)
-    - 1-2 situational questions (scenarios they might face)
+    - 2-3 behavioral questions (teamwork, challenges, achievements) - focus on their strengths
+    - 2-3 technical questions (skills, problem-solving, technical knowledge) - based on their specific skills
+    - 1-2 situational questions (scenarios they might face) - relevant to the target role
+
+    ${skillsContext}
+    ${careerContext}
+    ${strengthsContext}
+
+    Make questions specific to their background and skills. For technical questions, focus on the technologies and skills they actually have.
 
     Return ONLY a JSON array of strings (just the questions):
     ["Question 1", "Question 2", "Question 3", "Question 4", "Question 5", "Question 6"]

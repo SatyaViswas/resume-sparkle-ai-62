@@ -112,11 +112,17 @@ const ResumeReviewer = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
+      // Use career paths from analysis or fallback to target role
+      const relevantRole = targetRole || careerPaths[0]?.title || 'Software Developer';
+      
       const { data, error } = await supabase.functions.invoke('generate-interview-questions', {
         body: {
           userId: user?.id || null,
           resumeText: extractedText,
-          targetRole: targetRole || 'Software Developer'
+          targetRole: relevantRole,
+          extractedSkills: extractedSkills,
+          careerPaths: careerPaths,
+          analysisData: analysisData
         }
       });
 
@@ -126,7 +132,7 @@ const ResumeReviewer = () => {
         setQuestionsData(data.questions || []);
         toast({
           title: "Questions generated!",
-          description: `Generated ${data.questions.length} interview questions based on your resume.`,
+          description: `Generated ${data.questions.length} interview questions based on your resume skills and experience.`,
         });
       } else {
         throw new Error(data.error || 'Failed to generate questions');
