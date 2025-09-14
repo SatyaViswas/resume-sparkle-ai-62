@@ -106,7 +106,7 @@ const ResumeReviewer = () => {
     input.click();
   };
 
-  const handleGenerateQuestions = async () => {
+  const handleGenerateQuestions = async (targetRole?: string) => {
     setIsGeneratingQuestions(true);
     
     try {
@@ -116,7 +116,7 @@ const ResumeReviewer = () => {
         body: {
           userId: user?.id || null,
           resumeText: extractedText,
-          targetRole: 'Software Developer'
+          targetRole: targetRole || 'Software Developer'
         }
       });
 
@@ -126,7 +126,7 @@ const ResumeReviewer = () => {
         setQuestionsData(data.questions || []);
         toast({
           title: "Questions generated!",
-          description: "Interview questions have been generated based on your resume.",
+          description: `Generated ${data.questions.length} interview questions based on your resume.`,
         });
       } else {
         throw new Error(data.error || 'Failed to generate questions');
@@ -581,7 +581,7 @@ const ResumeReviewer = () => {
                     <h3 className="text-lg font-semibold text-foreground mb-2">No questions yet</h3>
                     <p className="text-muted-foreground mb-6">Click Generate to see interview questions based on your resume</p>
                     <Button 
-                      onClick={handleGenerateQuestions}
+                      onClick={() => handleGenerateQuestions()}
                       disabled={isGeneratingQuestions || !extractedText}
                       className="gradient-primary text-white px-6 py-2"
                     >
@@ -600,7 +600,7 @@ const ResumeReviewer = () => {
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-semibold">Interview Questions</h3>
                       <Button 
-                        onClick={handleGenerateQuestions}
+                        onClick={() => handleGenerateQuestions()}
                         disabled={isGeneratingQuestions}
                         variant="outline"
                         size="sm"

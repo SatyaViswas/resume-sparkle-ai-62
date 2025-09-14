@@ -5,6 +5,8 @@ import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { 
   MessageSquare, 
   Wrench, 
@@ -20,6 +22,7 @@ const Interviewer = () => {
   const [questions, setQuestions] = useState<any[]>([]);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
 
   const roles = [
     "Frontend Developer",
@@ -34,68 +37,54 @@ const Interviewer = () => {
     "QA Engineer"
   ];
 
-  const generateQuestions = () => {
+  const generateQuestions = async () => {
     if (!selectedRole) return;
     
     setIsLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      const mockQuestions = [
-        {
-          id: 1,
-          type: "Behavioral",
-          question: "Tell me about a challenging project you worked on and how you overcame the obstacles.",
-          icon: <MessageSquare className="w-5 h-5" />,
-          difficulty: "Medium",
-          timeLimit: "3-5 minutes"
-        },
-        {
-          id: 2,
-          type: "Technical",
-          question: `What are the key principles of ${selectedRole.toLowerCase()} development that you follow?`,
-          icon: <Wrench className="w-5 h-5" />,
-          difficulty: "Hard",
-          timeLimit: "5-7 minutes"
-        },
-        {
-          id: 3,
-          type: "Situational",
-          question: "How would you handle a situation where you disagree with a technical decision made by your team lead?",
-          icon: <AlertTriangle className="w-5 h-5" />,
-          difficulty: "Medium",
-          timeLimit: "3-4 minutes"
-        },
-        {
-          id: 4,
-          type: "Behavioral",
-          question: "Describe a time when you had to learn a new technology quickly for a project. How did you approach it?",
-          icon: <MessageSquare className="w-5 h-5" />,
-          difficulty: "Medium",
-          timeLimit: "4-5 minutes"
-        },
-        {
-          id: 5,
-          type: "Technical",
-          question: `Explain how you would optimize the performance of a ${selectedRole.toLowerCase()} application.`,
-          icon: <Wrench className="w-5 h-5" />,
-          difficulty: "Hard",
-          timeLimit: "6-8 minutes"
-        },
-        {
-          id: 6,
-          type: "Situational",
-          question: "If you discovered a critical bug in production just before a major release, what steps would you take?",
-          icon: <AlertTriangle className="w-5 h-5" />,
-          difficulty: "Hard",
-          timeLimit: "4-6 minutes"
-        }
-      ];
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
       
-      setQuestions(mockQuestions);
-      setAnswers({});
+      const { data, error } = await supabase.functions.invoke('generate-interview-questions', {
+        body: {
+          userId: user?.id || null,
+          resumeText: null, // No resume text from this page
+          targetRole: selectedRole
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        const formattedQuestions = data.questions.map((question: string, index: number) => ({
+          id: index + 1,
+          type: index % 3 === 0 ? "Behavioral" : (index % 3 === 1 ? "Technical" : "Situational"),
+          question: question,
+          icon: index % 3 === 0 ? <MessageSquare className="w-5 h-5" /> : 
+                (index % 3 === 1 ? <Wrench className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />),
+          difficulty: ["Easy", "Medium", "Hard"][Math.floor(Math.random() * 3)],
+          timeLimit: ["3-4 minutes", "4-5 minutes", "5-7 minutes"][Math.floor(Math.random() * 3)]
+        }));
+        
+        setQuestions(formattedQuestions);
+        setAnswers({});
+        toast({
+          title: "Questions generated!",
+          description: `Generated ${data.questions.length} interview questions for ${selectedRole}.`,
+        });
+      } else {
+        throw new Error(data.error || 'Failed to generate questions');
+      }
+    } catch (error) {
+      console.error('Question generation error:', error);
+      toast({
+        title: "Generation failed",
+        description: "Could not generate questions. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   const handleAnswerChange = (questionId: number, answer: string) => {

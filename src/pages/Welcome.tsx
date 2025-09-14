@@ -23,7 +23,7 @@ const Welcome = () => {
           <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
             <FileText className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-5xl md:text-6xl font-bold text-white">Resume Mentor</h1>
+          <h1 className="text-5xl md:text-6xl font-bold text-white">ResuMate</h1>
         </div>
 
         {/* Tagline */}

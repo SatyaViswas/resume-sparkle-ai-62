@@ -65,7 +65,7 @@ const Auth = () => {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">
-            Resume Mentor
+            ResuMate
           </h1>
           <p className="text-muted-foreground">
             {isSignUp ? "Create your account to get started" : "Welcome back! Sign in to continue"}

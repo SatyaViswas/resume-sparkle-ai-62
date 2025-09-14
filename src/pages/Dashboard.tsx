@@ -103,7 +103,7 @@ const Dashboard = () => {
         <div className="hero-gradient rounded-2xl p-8 mb-8 animate-fade-in">
           <div className="text-center">
             <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">
-              Welcome to Resume Mentor 👋
+              Welcome to ResuMate 👋
             </h1>
             <p className="text-xl text-white/90 max-w-2xl mx-auto">
               Here's a quick overview of your resume journey and career progress.

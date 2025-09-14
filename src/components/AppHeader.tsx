@@ -48,7 +48,7 @@ const AppHeader = () => {
             <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
               <FileText className="w-6 h-6 text-primary" />
             </div>
-            <h1 className="text-xl font-bold text-foreground">Resume Mentor</h1>
+            <h1 className="text-xl font-bold text-foreground">ResuMate</h1>
           </div>
 
           {/* User Account Section */}

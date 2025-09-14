@@ -20,13 +20,7 @@ const Navbar = () => {
     <nav className="bg-card border-b border-border sticky top-0 z-50 card-shadow">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <Link to="/dashboard" className="flex items-center space-x-2">
-            <div className="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">RM</span>
-            </div>
-            <span className="text-xl font-bold text-foreground">Resume Mentor</span>
-          </Link>
+          {/* Logo - Removed to avoid duplication with AppHeader */}
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex space-x-1">
