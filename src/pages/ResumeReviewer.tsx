@@ -634,13 +634,7 @@ const ResumeReviewer = () => {
                               </span>
                             </div>
                           </div>
-                          <p className="text-sm text-foreground font-medium mb-4">{typeof question === 'string' ? question : question.question}</p>
-                          <div className="space-y-2">
-                            <textarea
-                              placeholder="Type your answer here..."
-                              className="w-full h-20 p-3 border border-border rounded-lg resize-none text-sm"
-                            />
-                          </div>
+                           <p className="text-sm text-foreground font-medium">{typeof question === 'string' ? question : question.question}</p>
                         </Card>
                       ))}
                     </div>

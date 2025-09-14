@@ -36,31 +36,31 @@ export const FresherTemplate = ({ data }: FresherTemplateProps) => {
           {data.email && (
             <div className="flex items-center gap-1">
               <Mail className="w-3 h-3" />
-              <span>{data.email}</span>
+              <a href={`mailto:${data.email}`} className="text-blue-600 hover:underline">{data.email}</a>
             </div>
           )}
           {data.phone && (
             <div className="flex items-center gap-1">
               <Phone className="w-3 h-3" />
-              <span>{data.phone}</span>
+              <a href={`tel:${data.phone}`} className="text-blue-600 hover:underline">{data.phone}</a>
             </div>
           )}
           {data.linkedin && (
             <div className="flex items-center gap-1">
               <Linkedin className="w-3 h-3" />
-              <span>{data.linkedin}</span>
+              <a href={data.linkedin.startsWith('http') ? data.linkedin : `https://${data.linkedin}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{data.linkedin}</a>
             </div>
           )}
           {data.github && (
             <div className="flex items-center gap-1">
               <Github className="w-3 h-3" />
-              <span>{data.github}</span>
+              <a href={data.github.startsWith('http') ? data.github : `https://${data.github}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{data.github}</a>
             </div>
           )}
           {data.portfolio && (
             <div className="flex items-center gap-1">
               <Globe className="w-3 h-3" />
-              <span>{data.portfolio}</span>
+              <a href={data.portfolio.startsWith('http') ? data.portfolio : `https://${data.portfolio}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{data.portfolio}</a>
             </div>
           )}
           {data.location && (

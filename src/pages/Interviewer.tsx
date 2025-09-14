@@ -209,31 +209,9 @@ const Interviewer = () => {
                           <span>{question.timeLimit}</span>
                         </div>
                       </div>
-                      <p className="text-foreground font-medium text-lg leading-relaxed">{question.question}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-6">
-                    <div className="flex items-center justify-between mb-3">
-                      <label className="text-sm font-medium text-foreground">Your Answer:</label>
-                      {answers[question.id] && answers[question.id].length > 0 && (
-                        <div className="flex items-center space-x-1 text-xs text-success">
-                          <CheckCircle className="w-3 h-3" />
-                          <span>Answer provided</span>
-                        </div>
-                      )}
-                    </div>
-                    <Textarea
-                      placeholder="Type your answer here... Take your time to think through your response."
-                      value={answers[question.id] || ""}
-                      onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-                      rows={6}
-                      className="resize-none"
-                    />
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      Tip: Structure your answer using the STAR method (Situation, Task, Action, Result) for behavioral questions.
-                    </div>
-                  </div>
+                       <p className="text-foreground font-medium text-lg leading-relaxed">{question.question}</p>
+                     </div>
+                   </div>
                 </Card>
               ))}
             </div>
@@ -246,12 +224,10 @@ const Interviewer = () => {
                   <p className="text-2xl font-bold text-primary">{questions.length}</p>
                   <p className="text-sm text-muted-foreground">Questions</p>
                 </div>
-                <div>
-                  <p className="text-2xl font-bold text-success">
-                    {Object.values(answers).filter(answer => answer && answer.length > 0).length}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Answered</p>
-                </div>
+                 <div>
+                   <p className="text-2xl font-bold text-success">{questions.length}</p>
+                   <p className="text-sm text-muted-foreground">Generated</p>
+                 </div>
                 <div>
                   <p className="text-2xl font-bold text-secondary">{selectedRole}</p>
                   <p className="text-sm text-muted-foreground">Target Role</p>
