@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useState, useRef } from "react";
 import { FileText, Download, Eye, MapPin, Phone, Mail, Globe, Github, Linkedin, Award, BookOpen } from "lucide-react";
+import { FresherTemplate } from "@/components/resume-templates/FresherTemplate";
 import { ProfessionalTemplate } from "@/components/resume-templates/ProfessionalTemplate";
 import { CareerSwitcherTemplate } from "@/components/resume-templates/CareerSwitcherTemplate";
 import { useAuth } from "@/hooks/useAuth";
@@ -20,7 +21,7 @@ const ResumeBuilder = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const resumeRef = useRef<HTMLDivElement>(null);
-  const [step, setStep] = useState<"template" | "details" | "preview">("template");
+  const [step, setStep] = useState<"details" | "template" | "preview">("details");
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     fullName: "",
@@ -43,6 +44,14 @@ const ResumeBuilder = () => {
 
   const templates = [
     {
+      id: "fresher",
+      name: "Fresher Resume",
+      description: "Perfect for students and recent graduates",
+      preview: "Education-focused with projects and coursework emphasis",
+      targetLength: "1 page",
+      bestFor: "Entry-level positions, internships, first jobs"
+    },
+    {
       id: "professional",
       name: "Professional Resume",
       description: "Ideal for mid-level working professionals",
@@ -64,12 +73,12 @@ const ResumeBuilder = () => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const selectTemplate = (templateId: string) => {
-    setSelectedTemplate(templateId);
-    setStep("details");
+  const generatePreview = () => {
+    setStep("template");
   };
 
-  const generatePreview = () => {
+  const selectTemplate = (templateId: string) => {
+    setSelectedTemplate(templateId);
     setStep("preview");
   };
 
@@ -269,18 +278,18 @@ const ResumeBuilder = () => {
         {/* Step Indicator */}
         <div className="flex items-center justify-center mb-8">
           <div className="flex items-center space-x-4">
-            <div className={`flex items-center space-x-2 ${step === "template" ? "text-primary" : "text-muted-foreground"}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === "template" ? "bg-primary text-white" : "bg-muted"}`}>
-                1
-              </div>
-              <span className="text-sm font-medium">Select Template</span>
-            </div>
-            <div className="w-16 h-0.5 bg-border" />
             <div className={`flex items-center space-x-2 ${step === "details" ? "text-primary" : "text-muted-foreground"}`}>
               <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === "details" ? "bg-primary text-white" : "bg-muted"}`}>
-                2
+                1
               </div>
               <span className="text-sm font-medium">Enter Details</span>
+            </div>
+            <div className="w-16 h-0.5 bg-border" />
+            <div className={`flex items-center space-x-2 ${step === "template" ? "text-primary" : "text-muted-foreground"}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === "template" ? "bg-primary text-white" : "bg-muted"}`}>
+                2
+              </div>
+              <span className="text-sm font-medium">Select Template</span>
             </div>
             <div className="w-16 h-0.5 bg-border" />
             <div className={`flex items-center space-x-2 ${step === "preview" ? "text-primary" : "text-muted-foreground"}`}>
@@ -507,12 +516,9 @@ const ResumeBuilder = () => {
                 </div>
               </div>
 
-              <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setStep("template")}>
-                  ← Back to Templates
-                </Button>
+              <div className="flex justify-end">
                 <Button onClick={generatePreview} className="gradient-primary text-white px-8">
-                  Preview Resume
+                  Continue to Templates
                 </Button>
               </div>
             </Card>
@@ -521,8 +527,8 @@ const ResumeBuilder = () => {
 
         {step === "template" && (
           <div className="animate-fade-in">
-            <h2 className="text-2xl font-bold text-foreground mb-6 text-center">Choose Your Resume Template</h2>
-            <p className="text-center text-muted-foreground mb-8">Select the template that best matches your career stage and goals. You'll customize it with your details in the next step.</p>
+            <h2 className="text-2xl font-bold text-foreground mb-6 text-center">Choose Your Template</h2>
+            <p className="text-center text-muted-foreground mb-8">Select the template that best matches your career stage and goals</p>
             
             <div className="grid lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
               {templates.map((template) => (
@@ -555,6 +561,11 @@ const ResumeBuilder = () => {
               ))}
             </div>
             
+            <div className="flex justify-center mt-8">
+              <Button variant="outline" onClick={() => setStep("details")}>
+                ← Back to Details
+              </Button>
+            </div>
           </div>
         )}
 
@@ -572,6 +583,7 @@ const ResumeBuilder = () => {
                 
                 <Card className="card-shadow-lg overflow-hidden">
                   <div ref={resumeRef} className="bg-white min-h-[700px] max-h-[800px] overflow-y-auto">
+                    {selectedTemplate === "fresher" && <FresherTemplate data={formData} />}
                     {selectedTemplate === "professional" && <ProfessionalTemplate data={formData} />}
                     {selectedTemplate === "career-switcher" && <CareerSwitcherTemplate data={formData} />}
                   </div>
