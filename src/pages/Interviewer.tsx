@@ -224,21 +224,14 @@ const Interviewer = () => {
                   <p className="text-2xl font-bold text-primary">{questions.length}</p>
                   <p className="text-sm text-muted-foreground">Questions</p>
                 </div>
-                 <div>
-                   <p className="text-2xl font-bold text-success">{questions.length}</p>
-                   <p className="text-sm text-muted-foreground">Generated</p>
-                 </div>
                 <div>
                   <p className="text-2xl font-bold text-secondary">{selectedRole}</p>
                   <p className="text-sm text-muted-foreground">Target Role</p>
                 </div>
               </div>
-              <div className="flex justify-center space-x-4">
+              <div className="flex justify-center">
                 <Button variant="outline" onClick={generateQuestions}>
                   Practice Again
-                </Button>
-                <Button className="gradient-primary text-white">
-                  Review Answers
                 </Button>
               </div>
             </Card>
