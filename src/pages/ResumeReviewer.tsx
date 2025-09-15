@@ -288,7 +288,7 @@ const ResumeReviewer = () => {
               </div>
               <h2 className="text-2xl font-bold text-foreground mb-4">Upload Your Resume</h2>
               <p className="text-muted-foreground mb-8">
-                Drag & drop your PDF/DOC file or upload a JPG/PNG photo of your resume
+                Upload a JPEG photo of your resume
               </p>
                 <div 
                   className="border-2 border-dashed border-border rounded-lg p-12 mb-6 hover:border-primary/50 transition-colors cursor-pointer"
