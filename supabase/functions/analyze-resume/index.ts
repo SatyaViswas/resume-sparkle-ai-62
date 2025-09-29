@@ -42,7 +42,8 @@ serve(async (req) => {
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'image/jpeg',
       'image/jpg',
-      'image/png'
+      'image/png',
+      'text/plain' // Added support for text files for testing
     ];
 
     if (!allowedTypes.includes(file.type)) {
@@ -64,19 +65,26 @@ serve(async (req) => {
 
     console.log('File uploaded successfully:', fileName);
 
-    // Step 2: Extract text with Azure Computer Vision
-    const azureEndpoint = Deno.env.get('AZURE_COMPUTER_VISION_ENDPOINT');
-    const azureKey = Deno.env.get('AZURE_COMPUTER_VISION_KEY');
-    
-    if (!azureEndpoint || !azureKey) {
-      throw new Error('Could not extract text. Please try another file or paste manually.');
-    }
-
-    console.log('Starting OCR extraction...');
-    
+    // Step 2: Extract text from file
     let extractedText = '';
     
-    try {
+    // Handle text files directly without OCR
+    if (file.type === 'text/plain') {
+      console.log('Processing text file directly...');
+      extractedText = await file.text();
+      console.log('Text extracted from plain text file, length:', extractedText.length);
+    } else {
+      // Step 2: Extract text with Azure Computer Vision for other file types
+      const azureEndpoint = Deno.env.get('AZURE_COMPUTER_VISION_ENDPOINT');
+      const azureKey = Deno.env.get('AZURE_COMPUTER_VISION_KEY');
+      
+      if (!azureEndpoint || !azureKey) {
+        throw new Error('Could not extract text. Please try another file or paste manually.');
+      }
+
+      console.log('Starting OCR extraction...');
+      
+      try {
       // Submit for OCR processing
       const ocrResponse = await fetch(`${azureEndpoint}/vision/v3.2/read/analyze`, {
         method: 'POST',
@@ -125,10 +133,11 @@ serve(async (req) => {
         
         attempts++;
       }
-    } catch (ocrError) {
-      console.error('OCR failed:', ocrError);
-      throw new Error('Could not extract text. Please try another file or paste manually.');
-    }
+      } catch (ocrError) {
+        console.error('OCR failed:', ocrError);
+        throw new Error('Could not extract text. Please try another file or paste manually.');
+      }
+    } // Close the else block for OCR processing
 
     if (!extractedText) {
       throw new Error('Could not extract text. Please try another file or paste manually.');
@@ -151,30 +160,44 @@ serve(async (req) => {
       throw new Error("This doesn't appear to be a resume. Please upload a resume file.");
     }
 
-    // Step 3: Analyze with Cohere
+    // Step 3: Analyze with Cohere AI
     const cohereKey = Deno.env.get('COHERE_API_KEY');
     if (!cohereKey) {
-      throw new Error('Cohere API key not configured');
+      console.error('Cohere API key not found in environment');
+      throw new Error('Cohere API key not configured - contact system administrator');
     }
 
-    console.log('Starting Cohere analysis...');
+    console.log('Starting Cohere AI analysis...');
+    console.log('Cohere API key available:', cohereKey ? 'YES' : 'NO');
 
-    // Resume Review
-    const reviewPrompt = `Analyze this resume and provide feedback in strict JSON format. Return ONLY valid JSON with no additional text or formatting:
+    // Resume Review with Cohere AI
+    const reviewPrompt = `You are an expert ATS (Applicant Tracking System) analyzer and resume reviewer. Analyze this resume thoroughly and provide a detailed assessment.
+
+Calculate the ATS score based on these specific criteria:
+- Keywords relevance (25 points): Does it contain industry-specific keywords?
+- Format structure (20 points): Is it well-organized with clear sections?
+- Experience relevance (20 points): Is experience clearly described with achievements?
+- Skills section (15 points): Are technical/relevant skills properly listed?
+- Contact information (10 points): Complete contact details?
+- Education format (10 points): Proper education formatting?
+
+Return ONLY valid JSON with no additional text:
 
 {
-  "ats_score": number between 0-100 based on ATS optimization,
-  "strengths": ["list of 3-4 strengths"],
-  "weaknesses": ["list of 3-4 areas for improvement"], 
-  "ats_suggestions": ["list of 3-4 ATS optimization tips"],
-  "improvements": ["list of 3-4 specific improvement recommendations"]
+  "ats_score": number between 0-100 (calculate based on above criteria),
+  "strengths": ["specific strengths found in this resume"],
+  "weaknesses": ["specific areas this resume lacks"], 
+  "ats_suggestions": ["specific ATS optimization tips for this resume"],
+  "improvements": ["actionable improvements for this specific resume"]
 }
 
-Resume text:
+Resume text to analyze:
 ${extractedText}`;
 
     let analysis;
     try {
+      console.log('Calling Cohere API for resume analysis...');
+      
       const reviewResponse = await fetch('https://api.cohere.com/v1/chat', {
         method: 'POST',
         headers: {
@@ -182,21 +205,33 @@ ${extractedText}`;
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'command-r-plus',
+          model: 'command-nightly',
           message: reviewPrompt,
           temperature: 0.3,
         }),
       });
 
+      console.log('Cohere API response status:', reviewResponse.status);
+      
       if (!reviewResponse.ok) {
-        throw new Error(`Cohere request failed: ${reviewResponse.statusText}`);
+        const errorBody = await reviewResponse.text();
+        console.error('Cohere API error:', errorBody);
+        throw new Error(`Cohere API request failed: ${reviewResponse.status} ${reviewResponse.statusText} - ${errorBody}`);
       }
 
       const reviewData = await reviewResponse.json();
+      console.log('Cohere API response received successfully');
+      console.log('Response text preview:', reviewData.text?.substring(0, 100));
+      
       const reviewText = reviewData.text;
       
       try {
         analysis = JSON.parse(reviewText);
+        console.log('✅ Cohere analysis parsed successfully:', {
+          ats_score: analysis.ats_score,
+          strengths_count: analysis.strengths?.length,
+          weaknesses_count: analysis.weaknesses?.length
+        });
       } catch (e) {
         console.log('Failed to parse review JSON, retrying with schema reminder');
         // Retry with schema reminder
@@ -207,7 +242,7 @@ ${extractedText}`;
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'command-r-plus',
+            model: 'command-nightly',
             message: `You must return ONLY valid JSON. ${reviewPrompt}`,
             temperature: 0.1,
           }),
@@ -241,8 +276,8 @@ ${extractedText}`;
       };
     }
 
-    // Step 1: Extract Skills from Resume
-    console.log('Extracting skills from resume...');
+    // Step 4: Extract Skills from Resume using Cohere AI
+    console.log('Extracting skills from resume using Cohere AI...');
     console.log('Resume content sample:', extractedText.substring(0, 200));
     
     const skillsPrompt = `Extract all technical skills, soft skills, tools, technologies, programming languages, certifications, and domain expertise mentioned in this resume. Return ONLY a JSON array of strings.
@@ -261,7 +296,7 @@ ${extractedText}`;
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'command-r-plus',
+          model: 'command-nightly',
           message: skillsPrompt,
           temperature: 0.1,
         }),
@@ -284,8 +319,9 @@ ${extractedText}`;
       extractedSkills = ['Communication', 'Problem-solving'];
     }
 
-    // Step 2: Generate Career Paths based on extracted skills
-    console.log('Generating career paths based on skills...');
+    // Step 5: Generate Career Paths using Cohere AI based on extracted skills
+    console.log('Generating career paths using Cohere AI based on skills...');
+    console.log('Skills to use for career analysis:', extractedSkills);
     
     const careerPrompt = `Based on the skills and experience in this resume, suggest 4 different career paths this person could realistically pursue. Each path should be based on their ACTUAL skills and background.
 
@@ -332,7 +368,7 @@ ${extractedText}`;
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'command-r-plus',
+          model: 'command-nightly',
           message: careerPrompt,
           temperature: 0.4,
         }),
@@ -375,7 +411,7 @@ Resume: ${extractedText.substring(0, 500)}`;
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              model: 'command-r-plus',
+              model: 'command-nightly',
               message: simplePrompt,
               temperature: 0.2,
             }),
@@ -487,7 +523,9 @@ Resume: ${extractedText.substring(0, 500)}`;
       return fallbackPaths.slice(0, 3); // Return max 3 paths
     }
 
-    // Job Keywords
+    // Step 6: Extract Job Keywords using Cohere AI
+    console.log('Extracting job keywords using Cohere AI...');
+    
     const keywordsPrompt = `Extract 5-8 job-relevant keywords from this resume. Return ONLY a JSON array of strings:
 
 ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"]
@@ -504,7 +542,7 @@ ${extractedText}`;
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'command-r-plus',
+          model: 'command-nightly',
           message: keywordsPrompt,
           temperature: 0.2,
         }),
@@ -524,61 +562,165 @@ ${extractedText}`;
       keywords = ["software", "development", "programming", "technology", "experience"];
     }
 
-    console.log('Analysis completed successfully');
+    console.log('✅ Resume analysis completed successfully using Cohere AI');
+    console.log('Final analysis summary:', {
+      cohere_analysis_complete: true,
+      ats_score: analysis.ats_score,
+      skills_extracted: extractedSkills.length,
+      career_paths_generated: careerPaths.length,
+      keywords_extracted: keywords?.length || 0
+    });
 
-    // Step 4: Fetch job matches using keywords
-    console.log('Fetching job matches...');
+    // Step 7: Generate personalized job recommendations using Cohere AI
+    console.log('Generating personalized job recommendations using Cohere AI...');
+    console.log('Extracted skills available:', extractedSkills);
+    console.log('Skills for job generation:', extractedSkills.slice(0, 5));
     
-    const rapidApiKey = Deno.env.get('RAPIDAPI_KEY');
     let jobs: any[] = [];
     
-    if (rapidApiKey && keywords?.length > 0) {
-      try {
-        const searchQuery = keywords.slice(0, 3).join(' ');
-        
-        const jobResponse = await fetch(`https://jsearch.p.rapidapi.com/search?query=${encodeURIComponent(searchQuery)}&page=1&num_pages=1`, {
-          headers: {
-            'X-RapidAPI-Key': rapidApiKey,
-            'X-RapidAPI-Host': 'jsearch.p.rapidapi.com',
-          },
-        });
+    // Ensure we have skills extracted before job generation
+    if (!extractedSkills || extractedSkills.length === 0) {
+      console.log('No skills extracted, using fallback job generation');
+      extractedSkills = ['Communication', 'Problem-solving', 'Teamwork', 'Leadership'];
+    }
+    
+    try {
+      const topSkills = extractedSkills.slice(0, 4);
+      const experienceLevel = extractedText.includes('Senior') ? 'Senior' : extractedText.includes('Lead') ? 'Lead' : extractedText.includes('Manager') ? 'Manager' : extractedText.match(/(\d+)\s*years?/i)?.[1] > 5 ? 'Senior' : extractedText.match(/(\d+)\s*years?/i)?.[1] > 2 ? 'Mid-level' : 'Junior';
+      
+      console.log('Using these skills for job generation:', topSkills);
+      
+      const jobGenerationPrompt = `You are a job recruiter. Generate 4 specific job opportunities that perfectly match these skills. Each job MUST be directly related to the skills listed.
 
-        if (jobResponse.ok) {
-          const jobData = await jobResponse.json();
-          jobs = (jobData.data || []).slice(0, 5).map((job: any) => ({
-            title: job.job_title || 'Software Engineer',
-            company: job.employer_name || 'Tech Company',
-            location: job.job_city ? `${job.job_city}, ${job.job_state || job.job_country}` : 'Remote',
-            apply_link: job.job_apply_link || '#',
-            description: job.job_description?.substring(0, 150) + '...' || 'Exciting opportunity to grow your career.',
-            match_score: Math.floor(Math.random() * 20) + 80 // 80-99%
-          }));
+Skills to match: ${topSkills.join(', ')}
+Experience Level: ${experienceLevel}
+
+Rules:
+- Job titles MUST include or relate to the specific skills (e.g., if "React" is a skill, include "React Developer")
+- Job descriptions MUST mention the exact skills from the list
+- Use realistic companies in tech, finance, healthcare, etc.
+- Vary the locations (San Francisco, New York, Austin, Remote, etc.)
+- Match scores should reflect how well the job matches the skills (85-99%)
+
+Return ONLY this JSON format:
+[
+  {
+    "title": "[Skill-specific job title]",
+    "company": "[Realistic company name]",
+    "location": "[City, State or Remote]",
+    "apply_link": "https://careers.company.com/job123",
+    "description": "We are seeking a ${experienceLevel} professional with expertise in ${topSkills[0]}, ${topSkills[1]}, and ${topSkills[2]} to join our team...",
+    "match_score": 95
+  }
+]
+
+Ensure each job is unique and specifically targets the skills: ${topSkills.join(', ')}`;
+
+      console.log('Calling Cohere AI for job generation...');
+      
+      const jobResponse = await fetch('https://api.cohere.com/v1/chat', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${cohereKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'command-nightly',
+          message: jobGenerationPrompt,
+          temperature: 0.6, // Higher temperature for variety
+        }),
+      });
+
+      if (jobResponse.ok) {
+        const jobData = await jobResponse.json();
+        console.log('Cohere job generation response received');
+        
+        try {
+          let cleanedJobText = jobData.text.trim();
+          if (cleanedJobText.startsWith('```json')) {
+            cleanedJobText = cleanedJobText.replace(/```json/g, '').replace(/```/g, '');
+          }
+          
+          jobs = JSON.parse(cleanedJobText);
+          console.log('✅ Generated personalized jobs:', jobs.map(j => j.title));
+        } catch (e) {
+          console.log('Failed to parse job JSON, using skill-based fallback');
+          jobs = [];
         }
-      } catch (e) {
-        console.log('Job search failed, using fallback jobs:', e);
+      } else {
+        console.log('Cohere job generation failed, using fallback');
+        jobs = [];
       }
+    } catch (e) {
+      console.log('Job generation error:', e);
+      jobs = [];
     }
 
-    // Fallback jobs if API fails
+    // Create skill-based fallback jobs if API fails
     if (jobs.length === 0) {
-      jobs = [
-        {
-          title: "Frontend Developer",
-          company: "TechCorp Inc.",
+      console.log('Creating skill-based fallback jobs using extracted skills:', extractedSkills);
+      
+      const skillsLower = extractedSkills.map(s => s.toLowerCase());
+      const fallbackJobs = [];
+      
+      // Generate jobs based on actual skills with better skill detection
+      if (skillsLower.some(s => ['react', 'javascript', 'html', 'css', 'frontend', 'vue', 'angular'].includes(s))) {
+        fallbackJobs.push({
+          title: `${extractedSkills.find(s => ['React', 'Vue', 'Angular'].includes(s)) || 'Frontend'} Developer`,
+          company: "TechFlow Inc.",
           location: "San Francisco, CA",
-          apply_link: "#",
-          description: "Build responsive web applications with React and TypeScript...",
+          apply_link: "https://techflow.com/careers",
+          description: `Build modern web applications using ${extractedSkills.slice(0, 3).join(', ')} and create responsive user interfaces...`,
+          match_score: 92
+        });
+      }
+      
+      if (skillsLower.some(s => ['python', 'sql', 'tableau', 'power bi', 'data analysis', 'machine learning', 'analytics'].includes(s))) {
+        fallbackJobs.push({
+          title: "Data Analyst",
+          company: "DataInsights Corp",
+          location: "New York, NY",
+          apply_link: "https://datainsights.com/jobs",
+          description: `Analyze datasets and create dashboards using ${extractedSkills.slice(0, 3).join(', ')}, build predictive models and generate insights...`,
+          match_score: 94
+        });
+      }
+      
+      if (skillsLower.some(s => ['python', 'java', 'node.js', 'backend', 'api', 'database'].includes(s))) {
+        fallbackJobs.push({
+          title: "Backend Developer",
+          company: "ServerTech Solutions",
+          location: "Seattle, WA",
+          apply_link: "https://servertech.com/careers",
+          description: `Develop server-side applications and APIs with ${extractedSkills.slice(0, 3).join(', ')}, design databases and optimize performance...`,
           match_score: 89
-        },
-        {
-          title: "Full Stack Engineer",
+        });
+      }
+      
+      if (skillsLower.some(s => ['management', 'leadership', 'project', 'agile'].includes(s))) {
+        fallbackJobs.push({
+          title: "Project Manager",
           company: "Innovation Labs",
           location: "Remote",
           apply_link: "#",
-          description: "Work on both frontend and backend systems using modern technologies...",
-          match_score: 82
-        }
-      ];
+          description: `Lead projects and teams using ${extractedSkills.slice(0, 3).join(', ')} skills...`,
+          match_score: 80
+        });
+      }
+      
+      // If no specific skills match, create a general job
+      if (fallbackJobs.length === 0) {
+        fallbackJobs.push({
+          title: "Professional Role",
+          company: "Growing Company",
+          location: "Various Locations",
+          apply_link: "#",
+          description: `Opportunity to utilize your skills in ${extractedSkills.slice(0, 3).join(', ')}...`,
+          match_score: 75
+        });
+      }
+      
+      jobs = fallbackJobs.slice(0, 3); // Take up to 3 jobs
     }
 
     console.log('Found', jobs.length, 'job matches');

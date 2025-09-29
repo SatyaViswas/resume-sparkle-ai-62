@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Real Resume Upload</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .test-section { background: #f8f9fa; padding: 20px; margin: 20px 0; border-radius: 8px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 10px 5px; }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+        pre { background: #f8f9fa; padding: 15px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; }
+        .step { margin: 20px 0; padding: 15px; border-left: 4px solid #007bff; background: #f8f9fa; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Real Resume Upload Test</h1>
+    
+    <div class="test-section">
+        <h3>📋 Test Instructions</h3>
+        <p>This will test your actual resume upload flow exactly as users would experience it:</p>
+        <ol>
+            <li>Click "Create Test Resume" to generate a PDF-like text file</li>
+            <li>Click "Upload Test Resume" to test the analysis</li>
+            <li>Check the detailed results below</li>
+        </ol>
+    </div>
+
+    <div class="step">
+        <h4>Step 1: Create Test Resume</h4>
+        <button onclick="createTestResume()" id="createBtn">Create Test Resume</button>
+        <div id="resumePreview" style="display: none;">
+            <p><strong>✅ Test resume created!</strong></p>
+            <pre id="resumeContent"></pre>
+        </div>
+    </div>
+
+    <div class="step">
+        <h4>Step 2: Upload & Analyze</h4>
+        <button onclick="uploadAndAnalyze()" id="uploadBtn" disabled>Upload Test Resume</button>
+        <div id="uploadStatus"></div>
+    </div>
+
+    <div class="step">
+        <h4>Step 3: Analysis Results</h4>
+        <div id="results"></div>
+    </div>
+
+    <div class="step">
+        <h4>Step 4: Troubleshooting Info</h4>
+        <div id="troubleshooting"></div>
+    </div>
+
+    <script>
+        let testResumeBlob = null;
+        
+        const SUPABASE_URL = "https://xwoeluhtkzednjetkgtq.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3b2VsdWh0a3plZG5qZXRrZ3RxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTcyMzYzMDQsImV4cCI6MjA3MjgxMjMwNH0.8HwgfaxrGEyPPNV90dwh64my9xzv-8Q4eFrJ7odySRY";
+
+        function createTestResume() {
+            const resumeText = `JOHN SMITH
+SOFTWARE ENGINEER
+
+📧 john.smith@email.com | 📱 (555) 123-4567 | 🔗 linkedin.com/in/johnsmith
+
+PROFESSIONAL SUMMARY
+Experienced Software Engineer with 5+ years of expertise in full-stack web development, 
+specializing in React, Node.js, and cloud technologies. Proven track record of delivering 
+scalable applications and leading cross-functional teams to success.
+
+TECHNICAL SKILLS
+• Frontend: React, TypeScript, JavaScript, HTML5, CSS3, Tailwind CSS
+• Backend: Node.js, Express.js, Python, Java, REST APIs, GraphQL
+• Database: PostgreSQL, MongoDB, Redis, MySQL
+• Cloud: AWS (EC2, S3, Lambda), Docker, Kubernetes
+• Tools: Git, Jenkins, Jira, VS Code, Figma
+
+PROFESSIONAL EXPERIENCE
+
+Senior Software Engineer | TechCorp Inc. | Jan 2022 - Present
+• Led development of e-commerce platform serving 100K+ users, resulting in 40% increase in sales
+• Implemented microservices architecture reducing system downtime by 60%
+• Mentored 3 junior developers and conducted code reviews for team of 8 engineers
+• Optimized database queries improving application performance by 35%
+
+Software Developer | StartupXYZ | Jun 2019 - Dec 2021  
+• Built responsive web applications using React and Node.js for 50+ client projects
+• Collaborated with UX designers to implement pixel-perfect user interfaces
+• Integrated third-party APIs including payment gateways and social media platforms
+• Participated in agile development process with 2-week sprint cycles
+
+Junior Developer | Innovation Labs | Sep 2018 - May 2019
+• Developed and maintained company website using modern web technologies
+• Fixed bugs and implemented new features based on user feedback
+• Learned best practices in software development and version control
+
+EDUCATION
+Bachelor of Science in Computer Science
+University of Technology | 2014 - 2018
+GPA: 3.8/4.0
+
+PROJECTS
+E-Commerce Dashboard | 2023
+• Built comprehensive admin panel for online store management
+• Technologies: React, Node.js, PostgreSQL, AWS
+• Result: Reduced order processing time by 50%
+
+Task Management App | 2022  
+• Developed full-stack productivity application with real-time updates
+• Technologies: React, Express.js, Socket.io, MongoDB
+• Result: Used by 500+ active users
+
+CERTIFICATIONS
+• AWS Certified Solutions Architect - Associate (2023)
+• Google Analytics Certified (2022)
+• Scrum Master Certified (2021)
+
+ACHIEVEMENTS
+• Employee of the Year - TechCorp Inc. (2023)
+• Published technical blog with 10K+ monthly readers
+• Speaker at 3 tech conferences on React best practices`;
+
+            testResumeBlob = new Blob([resumeText], { type: 'text/plain' });
+            
+            document.getElementById('resumeContent').textContent = resumeText.substring(0, 500) + '...';
+            document.getElementById('resumePreview').style.display = 'block';
+            document.getElementById('uploadBtn').disabled = false;
+            document.getElementById('createBtn').textContent = '✅ Resume Created';
+            document.getElementById('createBtn').disabled = true;
+        }
+
+        async function uploadAndAnalyze() {
+            const uploadBtn = document.getElementById('uploadBtn');
+            const statusDiv = document.getElementById('uploadStatus');
+            const resultsDiv = document.getElementById('results');
+            const troubleshootingDiv = document.getElementById('troubleshooting');
+            
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = '🔄 Analyzing...';
+            
+            statusDiv.innerHTML = '<p>📡 Uploading resume and starting AI analysis...</p>';
+            
+            try {
+                const file = new File([testResumeBlob], 'test-resume.txt', { type: 'text/plain' });
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('userId', 'test-user-' + Date.now());
+
+                console.log('🚀 Starting upload to:', SUPABASE_URL + '/functions/v1/analyze-resume');
+                
+                const response = await fetch(SUPABASE_URL + '/functions/v1/analyze-resume', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                    },
+                    body: formData
+                });
+
+                console.log('📊 Response status:', response.status, response.statusText);
+                
+                const result = await response.json();
+                console.log('📋 Full response:', result);
+
+                if (result.success) {
+                    statusDiv.innerHTML = '<p class="success">✅ Analysis completed successfully!</p>';
+                    
+                    // Detailed analysis of the results
+                    const analysis = result.analysis;
+                    const hasRealAnalysis = analysis.ats_score && analysis.ats_score > 0;
+                    
+                    resultsDiv.innerHTML = `
+                        <h5>📊 Analysis Results:</h5>
+                        <div style="margin: 10px 0;">
+                            <strong>ATS Score:</strong> ${analysis.ats_score || 'Not calculated'} 
+                            ${hasRealAnalysis ? '✅' : '❌ (Using fallback)'}
+                        </div>
+                        <div style="margin: 10px 0;">
+                            <strong>Strengths (${analysis.strengths?.length || 0}):</strong>
+                            <ul>${(analysis.strengths || []).map(s => '<li>' + s + '</li>').join('')}</ul>
+                        </div>
+                        <div style="margin: 10px 0;">
+                            <strong>Weaknesses (${analysis.weaknesses?.length || 0}):</strong>
+                            <ul>${(analysis.weaknesses || []).map(w => '<li>' + w + '</li>').join('')}</ul>
+                        </div>
+                        <div style="margin: 10px 0;">
+                            <strong>Career Paths (${analysis.career_paths?.length || 0}):</strong>
+                            <ul>${(analysis.career_paths || []).map(cp => `<li>${cp.title} (${cp.match_percentage}% match)</li>`).join('')}</ul>
+                        </div>
+                        <div style="margin: 10px 0;">
+                            <strong>Jobs Found:</strong> ${result.jobs?.length || 0}
+                        </div>
+                    `;
+                    
+                    // Troubleshooting info
+                    const isUsingFallback = !hasRealAnalysis || 
+                        (analysis.strengths && analysis.strengths[0] === "Resume uploaded successfully");
+                    
+                    troubleshootingDiv.innerHTML = `
+                        <h5>🔍 Diagnosis:</h5>
+                        <div style="margin: 10px 0;">
+                            <strong>Status:</strong> ${isUsingFallback ? 
+                                '⚠️ Using fallback data (Cohere API call failed)' : 
+                                '✅ Real AI analysis working'}
+                        </div>
+                        <div style="margin: 10px 0;">
+                            <strong>Text Extraction:</strong> ${result.extracted_text ? 
+                                '✅ Success (' + result.extracted_text.length + ' characters)' : 
+                                '❌ Failed'}
+                        </div>
+                        <div style="margin: 10px 0;">
+                            <strong>Next Steps:</strong> ${isUsingFallback ? 
+                                'Your Cohere API key may be invalid. Check the API key format and account status.' :
+                                'Everything is working correctly!'}
+                        </div>
+                    `;
+                    
+                } else {
+                    statusDiv.innerHTML = `<p class="error">❌ Analysis failed: ${result.error}</p>`;
+                    troubleshootingDiv.innerHTML = `
+                        <h5>🔍 Error Details:</h5>
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                    `;
+                }
+
+            } catch (error) {
+                console.error('💥 Upload error:', error);
+                statusDiv.innerHTML = `<p class="error">❌ Upload failed: ${error.message}</p>`;
+                troubleshootingDiv.innerHTML = `
+                    <h5>🔍 Technical Error:</h5>
+                    <pre>${error.stack || error.message}</pre>
+                `;
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = 'Upload Test Resume';
+            }
+        }
+    </script>
+</body>
+</html>

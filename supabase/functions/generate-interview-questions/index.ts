@@ -74,7 +74,7 @@ serve(async (req) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'command-r-plus',
+          model: 'command-nightly',
           message: questionsPrompt,
           temperature: 0.7,
         }),
@@ -99,7 +99,7 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'command-r-plus',
+            model: 'command-nightly',
             message: `You must return ONLY a valid JSON array of strings. ${questionsPrompt}`,
             temperature: 0.5,
           }),
