@@ -145,6 +145,152 @@ serve(async (req) => {
 
     console.log('Text extracted successfully, length:', extractedText.length);
     console.log('Resume content preview:', extractedText.substring(0, 200));
+    
+    // Helper function to create intelligent analysis based on resume content
+    function createIntelligentAnalysis(resumeText: string) {
+      const text = resumeText.toLowerCase();
+      const lines = resumeText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+      
+      // Calculate ATS score based on resume structure
+      let atsScore = 0;
+      const sections = ['experience', 'education', 'skills', 'projects'];
+      const hasContact = text.includes('email') || text.includes('@') || text.includes('phone');
+      const hasMetrics = /\d+%|\d+\+|\d+ years|increased|improved|reduced|achieved/.test(text);
+      const hasSkillsSection = text.includes('skills') || text.includes('technical') || text.includes('programming');
+      const hasClearStructure = sections.filter(section => text.includes(section)).length >= 2;
+      
+      atsScore += hasContact ? 15 : 5;
+      atsScore += hasMetrics ? 25 : 10;
+      atsScore += hasSkillsSection ? 20 : 10;
+      atsScore += hasClearStructure ? 20 : 10;
+      atsScore += Math.min(20, Math.floor(resumeText.length / 100)); // Length bonus
+      
+      // Analyze strengths based on content
+      const strengths = [];
+      if (hasMetrics) strengths.push('Quantified achievements with specific metrics and percentages');
+      if (hasSkillsSection) strengths.push('Well-organized technical skills section');
+      if (text.includes('project')) strengths.push('Relevant project experience demonstrating practical skills');
+      if (text.includes('lead') || text.includes('manage')) strengths.push('Leadership and management experience');
+      if (hasContact) strengths.push('Complete contact information provided');
+      
+      // Analyze weaknesses
+      const weaknesses = [];
+      if (!hasMetrics) weaknesses.push('Missing quantified achievements - add specific numbers and percentages');
+      if (!hasSkillsSection) weaknesses.push('No dedicated technical skills section identified');
+      if (!text.includes('project')) weaknesses.push('Limited project examples to demonstrate skills');
+      if (resumeText.length < 500) weaknesses.push('Resume content appears brief - consider adding more detail');
+      
+      // Generate improvements
+      const improvements = [];
+      if (!hasMetrics) improvements.push('Add specific metrics to work achievements (e.g., "increased sales by 25%")');
+      if (!hasSkillsSection) improvements.push('Create a dedicated skills section with relevant technologies');
+      if (atsScore < 70) improvements.push('Improve keyword density with industry-specific terms');
+      improvements.push('Ensure consistent formatting and clear section headers');
+      
+      return {
+        ats_score: Math.min(100, atsScore),
+        strengths: strengths.slice(0, 4),
+        weaknesses: weaknesses.slice(0, 4),
+        ats_suggestions: improvements.slice(0, 4),
+        improvements: improvements
+      };
+    }
+    
+    // Helper function to extract skills from resume text
+    function extractSkillsFromText(resumeText: string): string[] {
+      const text = resumeText.toLowerCase();
+      const skills: string[] = [];
+      
+      // Technical skills patterns
+      const technicalSkills = [
+        // Programming Languages
+        'javascript', 'python', 'java', 'typescript', 'react', 'vue.js', 'angular', 'node.js',
+        'html5', 'css3', 'php', 'ruby', 'go', 'rust', 'swift', 'kotlin', 'c++', 'c#', 'scala',
+        // Frameworks and Libraries  
+        'express', 'django', 'flask', 'spring', 'laravel', 'redux', 'vue', 'svelte', 'bootstrap',
+        'tailwind', 'sass', 'less', 'webpack', 'vite', 'next.js', 'nuxt.js', 'gatsby',
+        // Databases
+        'mysql', 'postgresql', 'mongodb', 'redis', 'sqlite', 'oracle', 'cassandra', 'elasticsearch',
+        // Cloud and DevOps
+        'aws', 'azure', 'gcp', 'docker', 'kubernetes', 'jenkins', 'terraform', 'ansible',
+        // Data Science
+        'pandas', 'numpy', 'scikit-learn', 'tensorflow', 'pytorch', 'keras', 'matplotlib', 'seaborn',
+        'tableau', 'power bi', 'jupyter', 'r', 'spss', 'sas', 'hadoop', 'spark',
+        // Tools
+        'git', 'github', 'gitlab', 'jira', 'confluence', 'slack', 'figma', 'sketch', 'adobe',
+        'photoshop', 'illustrator', 'canva'
+      ];
+      
+      // Business skills patterns
+      const businessSkills = [
+        'project management', 'agile', 'scrum', 'kanban', 'leadership', 'team management',
+        'strategic planning', 'business analysis', 'market research', 'digital marketing',
+        'seo', 'sem', 'social media', 'content marketing', 'email marketing', 'ppc',
+        'google analytics', 'facebook ads', 'hubspot', 'salesforce', 'mailchimp', 'hootsuite',
+        'crm', 'marketing automation', 'campaign management', 'brand management', 'roi',
+        'kpi', 'conversion optimization', 'a/b testing', 'lead generation', 'customer acquisition',
+        'marketing strategy', 'growth marketing', 'performance marketing', 'budget management',
+        'stakeholder management', 'cross-functional collaboration', 'team leadership'
+      ];
+      
+      // Extract skills mentioned in the resume (avoid false positives for short words)
+      [...technicalSkills, ...businessSkills].forEach(skill => {
+        // For very short skills (like 'go', 'r'), use word boundaries to avoid false matches
+        let hasSkill = false;
+        if (skill.length <= 2) {
+          // Use word boundaries for short skills to avoid false positives
+          const regex = new RegExp(`\\b${skill}\\b`, 'i');
+          hasSkill = regex.test(resumeText); // Use original case text for better matching
+        } else {
+          hasSkill = text.includes(skill);
+        }
+        
+        if (hasSkill) {
+          // Capitalize properly
+          const capitalizedSkill = skill.split(' ').map(word => 
+            word.charAt(0).toUpperCase() + word.slice(1)
+          ).join(' ');
+          if (!skills.includes(capitalizedSkill)) {
+            skills.push(capitalizedSkill);
+          }
+        }
+      });
+      
+      // Extract from skills section more specifically
+      const lines = resumeText.split('\n');
+      const skillsSectionStart = lines.findIndex(line => 
+        /skills|technical|competencies|technologies/i.test(line)
+      );
+      
+      if (skillsSectionStart !== -1) {
+        // Look at next 10 lines after skills header
+        for (let i = skillsSectionStart + 1; i < Math.min(skillsSectionStart + 11, lines.length); i++) {
+          const line = lines[i];
+          if (line && !line.match(/^[A-Z ]+$/)) { // Skip section headers
+            // Extract skills separated by |, •, or ,
+            const lineSkills = line.split(/[|•,]/).map(s => s.trim()).filter(s => s.length > 1);
+            lineSkills.forEach(skill => {
+              const cleanSkill = skill.replace(/[^a-zA-Z0-9\s.+-]/g, '').trim();
+              if (cleanSkill.length > 2 && cleanSkill.length < 30) {
+                skills.push(cleanSkill);
+              }
+            });
+          }
+        }
+      }
+      
+      // Add some common soft skills if mentioned
+      const softSkills = ['communication', 'problem-solving', 'teamwork', 'leadership', 'creativity'];
+      softSkills.forEach(skill => {
+        if (text.includes(skill) || text.includes(skill.replace('-', ' '))) {
+          skills.push(skill.charAt(0).toUpperCase() + skill.slice(1));
+        }
+      });
+      
+      // Remove duplicates and return top skills
+      const uniqueSkills = [...new Set(skills)];
+      return uniqueSkills.slice(0, 15);
+    }
 
     // Validate resume content
     if (extractedText.length < 50) {
@@ -173,22 +319,34 @@ serve(async (req) => {
     // Resume Review with Cohere AI
     const reviewPrompt = `You are an expert ATS (Applicant Tracking System) analyzer and resume reviewer. Analyze this resume thoroughly and provide a detailed assessment.
 
-Calculate the ATS score based on these specific criteria:
-- Keywords relevance (25 points): Does it contain industry-specific keywords?
-- Format structure (20 points): Is it well-organized with clear sections?
-- Experience relevance (20 points): Is experience clearly described with achievements?
-- Skills section (15 points): Are technical/relevant skills properly listed?
-- Contact information (10 points): Complete contact details?
-- Education format (10 points): Proper education formatting?
+First, identify the resume structure and content:
+- Extract contact information, professional summary/profile, education, skills, experience, projects
+- Analyze the completeness and quality of each section
+- Check for quantifiable achievements and specific technical skills
+- Assess overall formatting and organization
+
+Calculate ATS score based on these weighted criteria:
+- Technical Skills Presence (25 points): Programming languages, frameworks, tools clearly listed
+- Experience Quality (25 points): Clear job descriptions with quantified achievements  
+- Resume Structure (20 points): Well-organized sections (Profile, Experience, Education, Skills)
+- Keywords Density (15 points): Industry-relevant keywords throughout
+- Contact & Professional Details (10 points): Complete contact info, LinkedIn, portfolio
+- Education Relevance (5 points): Relevant degree or certifications
+
+For technical resumes like software developers: Look for programming languages (React, Python, JavaScript), frameworks, databases, cloud technologies, project descriptions with metrics.
+
+For business/marketing resumes: Look for tools (Google Analytics, CRM), campaigns, ROI metrics, team leadership, strategy experience.
+
+For data/analytics resumes: Look for SQL, Python, R, Tableau, statistical methods, data science tools, quantified results.
 
 Return ONLY valid JSON with no additional text:
 
 {
-  "ats_score": number between 0-100 (calculate based on above criteria),
-  "strengths": ["specific strengths found in this resume"],
-  "weaknesses": ["specific areas this resume lacks"], 
-  "ats_suggestions": ["specific ATS optimization tips for this resume"],
-  "improvements": ["actionable improvements for this specific resume"]
+  "ats_score": number between 0-100 (calculate based on actual content analysis),
+  "strengths": ["specific strengths found in this actual resume with examples"],
+  "weaknesses": ["specific gaps or areas for improvement in this resume"], 
+  "ats_suggestions": ["specific ATS optimization tips based on this resume's content"],
+  "improvements": ["actionable improvements tailored to this specific resume and career path"]
 }
 
 Resume text to analyze:
@@ -252,15 +410,9 @@ ${extractedText}`;
           const retryData = await retryResponse.json();
           try {
             analysis = JSON.parse(retryData.text);
-          } catch (e2) {
-            console.log('Second JSON parse failed, using fallback');
-            analysis = {
-              ats_score: 60,
-              strengths: ["Resume uploaded successfully"],
-              weaknesses: ["Analysis formatting needs improvement"],
-              ats_suggestions: ["Consider restructuring content"],
-              improvements: ["Review and optimize sections"]
-            };
+        } catch (e2) {
+            console.log('Second JSON parse failed, creating intelligent analysis from resume text');
+            analysis = createIntelligentAnalysis(extractedText);
           }
         } else {
           throw new Error('Cohere analysis failed');
@@ -268,27 +420,42 @@ ${extractedText}`;
       }
     } catch (cohereError) {
       console.error('Cohere analysis failed:', cohereError);
-      analysis = {
-        strengths: ["Resume uploaded successfully"],
-        weaknesses: ["Analysis formatting needs improvement"],
-        ats_suggestions: ["Consider restructuring content"],
-        improvements: ["Review and optimize sections"]
-      };
+      console.log('Creating intelligent analysis from resume content...');
+      analysis = createIntelligentAnalysis(extractedText);
     }
 
     // Step 4: Extract Skills from Resume using Cohere AI
     console.log('Extracting skills from resume using Cohere AI...');
     console.log('Resume content sample:', extractedText.substring(0, 200));
     
-    const skillsPrompt = `Extract all technical skills, soft skills, tools, technologies, programming languages, certifications, and domain expertise mentioned in this resume. Return ONLY a JSON array of strings.
+    const skillsPrompt = `Analyze this resume and extract ALL skills mentioned across ALL sections including:
 
-Return format: ["Python", "Project Management", "SQL", "Marketing", "Adobe Photoshop"]
+1. TECHNICAL SKILLS: Programming languages, frameworks, databases, cloud services, development tools
+2. SOFTWARE & TOOLS: Applications, platforms, analytics tools, design software
+3. DOMAIN EXPERTISE: Industry knowledge, methodologies, processes
+4. CERTIFICATIONS: Any mentioned certifications or qualifications
+5. SOFT SKILLS: Leadership, communication, problem-solving (when explicitly mentioned)
+
+Look in these sections:
+- Skills/Technical Skills section
+- Project descriptions (technologies used)
+- Work experience (tools and technologies mentioned)
+- Education section (relevant coursework, technologies)
+- Certifications and training
+
+For technical resumes, prioritize: Programming languages, frameworks, databases, cloud platforms, development tools
+For business resumes, prioritize: Analytics tools, CRM systems, project management, marketing platforms
+For data resumes, prioritize: Programming languages (Python, R, SQL), data visualization tools, statistical methods
+
+Return ONLY a JSON array of strings, prioritized by relevance:
+["Most Important Skill", "Second Important", "Third Important", ...]
 
 Resume:
 ${extractedText}`;
 
     let extractedSkills = [];
     try {
+      console.log('Attempting Cohere skills extraction...');
       const skillsResponse = await fetch('https://api.cohere.com/v1/chat', {
         method: 'POST',
         headers: {
@@ -304,59 +471,103 @@ ${extractedText}`;
 
       if (skillsResponse.ok) {
         const skillsData = await skillsResponse.json();
+        console.log('Cohere skills response received, parsing...');
         try {
           extractedSkills = JSON.parse(skillsData.text);
-          console.log('Extracted skills:', extractedSkills);
+          console.log('✅ Cohere skills parsed successfully:', extractedSkills.slice(0, 5));
+          
+          // Validate that we got actual skills, not generic ones
+          if (extractedSkills.length === 0 || 
+              (extractedSkills.length <= 3 && extractedSkills.every(skill => 
+                ['communication', 'problem-solving', 'teamwork', 'leadership', 'experience', 'software', 'development', 'programming', 'technology'].includes(skill.toLowerCase())
+              ))) {
+            console.log('Cohere returned generic skills, using intelligent extraction');
+            extractedSkills = extractSkillsFromText(extractedText);
+          }
         } catch (e) {
-          console.log('Failed to parse skills, using basic extraction');
-          // Basic fallback - extract common skills
-          const commonSkills = ['Communication', 'Problem-solving', 'Leadership', 'Teamwork'];
-          extractedSkills = commonSkills;
+          console.log('Failed to parse Cohere skills JSON, using intelligent text extraction');
+          extractedSkills = extractSkillsFromText(extractedText);
         }
+      } else {
+        console.log('Cohere skills API failed, using intelligent extraction');
+        extractedSkills = extractSkillsFromText(extractedText);
       }
     } catch (e) {
-      console.log('Skills extraction failed:', e);
-      extractedSkills = ['Communication', 'Problem-solving'];
+      console.log('Skills extraction failed completely, using text analysis:', e);
+      extractedSkills = extractSkillsFromText(extractedText);
     }
+    
+    // Final fallback if still no skills
+    if (extractedSkills.length === 0) {
+      console.log('No skills found with any method, using basic fallback');
+      extractedSkills = ['Communication', 'Problem-solving', 'Teamwork'];
+    }
+    
+    console.log('Final extracted skills count:', extractedSkills.length);
+    console.log('Final skills preview:', extractedSkills.slice(0, 8));
 
     // Step 5: Generate Career Paths using Cohere AI based on extracted skills
     console.log('Generating career paths using Cohere AI based on skills...');
     console.log('Skills to use for career analysis:', extractedSkills);
     
-    const careerPrompt = `Based on the skills and experience in this resume, suggest 4 different career paths this person could realistically pursue. Each path should be based on their ACTUAL skills and background.
+    // Analyze experience level from resume
+    const experienceAnalysis = {
+      level: extractedText.includes('Senior') || extractedText.includes('Lead') ? 'Senior' : 
+             extractedText.includes('Manager') || extractedText.includes('Director') ? 'Management' :
+             extractedText.match(/(\d+)\+?\s*years?/i)?.[1] >= 5 ? 'Senior' :
+             extractedText.match(/(\d+)\+?\s*years?/i)?.[1] >= 2 ? 'Mid-level' : 'Entry-level',
+      domain: extractedText.includes('Developer') || extractedText.includes('Engineer') ? 'Technical' :
+              extractedText.includes('Analyst') || extractedText.includes('Data') ? 'Data' :
+              extractedText.includes('Marketing') || extractedText.includes('Manager') ? 'Business' :
+              'General'
+    };
+    
+    const careerPrompt = `Analyze this resume and suggest 4 realistic career paths based on their ACTUAL background and skills.
 
-Extracted Skills: ${extractedSkills.join(', ')}
+EXTRACTED SKILLS: ${extractedSkills.join(', ')}
+EXPERIENCE LEVEL: ${experienceAnalysis.level}
+DOMAIN: ${experienceAnalysis.domain}
 
-Diversify the career suggestions - consider:
-- If they have business skills → Business Analyst, Product Manager
-- If they have creative skills → UX Designer, Content Creator  
-- If they have data skills → Data Analyst, Research Specialist
-- If they have technical skills → Software roles, System Admin
-- If they have communication skills → Technical Writer, Sales
-- If they have leadership experience → Team Lead, Project Manager
+CARIER PATH RULES:
+1. Base suggestions on ACTUAL skills and experience mentioned
+2. Consider current seniority level (entry/mid/senior)
+3. Suggest both lateral moves and growth opportunities
+4. Include diverse paths: technical advancement, management track, specialization, pivot options
+
+For TECHNICAL backgrounds (Software/Engineering):
+- Senior Developer, Tech Lead, Solutions Architect, Product Manager
+
+For DATA/ANALYTICS backgrounds:
+- Senior Data Analyst, Data Scientist, Business Intelligence, Data Engineering
+
+For BUSINESS/MARKETING backgrounds:
+- Marketing Manager, Product Manager, Business Analyst, Strategy Consultant
+
+For ENTRY-LEVEL candidates:
+- Focus on skill-building paths and junior roles with growth potential
 
 Return STRICT JSON format with NO extra text:
 [
   {
-    "title": "Specific Job Title",
-    "match_percentage": 75,
-    "why_fit": "Based on your [specific skills from resume], you have strong foundation for this role",
-    "existing_skills": ["skill1", "skill2", "skill3"],
-    "missing_skills": ["skill4", "skill5"],
-    "salary_range": "$50k-$80k",
+    "title": "Specific Job Title Based on Resume",
+    "match_percentage": 85,
+    "why_fit": "Based on your experience with [specific experience from resume] and skills in [specific skills], this role leverages your strengths in [specific area]",
+    "existing_skills": ["skill1 from resume", "skill2 from resume", "skill3 from resume"],
+    "missing_skills": ["specific skill gap", "another gap"],
+    "salary_range": "$60k-$90k",
     "growth_potential": "High",
     "learning_resources": [
       {
-        "skill": "missing_skill_name",
-        "course_name": "Specific Course Name",
+        "skill": "specific missing skill",
+        "course_name": "Targeted Course Name",
         "provider": "Coursera",
-        "link": "https://www.coursera.org/course-link"
+        "link": "https://www.coursera.org/learn/relevant-course"
       }
     ]
   }
 ]
 
-Resume Content:
+Full Resume Content for Context:
 ${extractedText}`;
 
     let careerPaths = [];
@@ -441,62 +652,130 @@ Resume: ${extractedText.substring(0, 500)}`;
       careerPaths = createIntelligentFallback(extractedSkills);
     }
 
-    // Helper function to create intelligent fallback based on skills
+    // Helper function to create intelligent fallback based on skills and resume content
     function createIntelligentFallback(skills) {
       const skillsLower = skills.map(s => s.toLowerCase());
       const fallbackPaths = [];
+      const resumeLower = extractedText.toLowerCase();
       
-      // Determine career paths based on skills
-      if (skillsLower.some(s => ['python', 'java', 'javascript', 'programming', 'coding'].includes(s))) {
+      // Analyze resume content for better context
+      const hasWebDev = skillsLower.some(s => ['react', 'javascript', 'html', 'css', 'frontend', 'vue', 'angular'].includes(s)) || resumeLower.includes('frontend') || resumeLower.includes('web developer');
+      const hasBackend = skillsLower.some(s => ['python', 'java', 'node.js', 'backend', 'api', 'database', 'sql'].includes(s)) || resumeLower.includes('backend') || resumeLower.includes('server');
+      const hasDataSkills = skillsLower.some(s => ['python', 'sql', 'tableau', 'data analysis', 'machine learning', 'pandas', 'numpy'].includes(s)) || resumeLower.includes('data analyst') || resumeLower.includes('analytics');
+      const hasManagement = skillsLower.some(s => ['management', 'leadership', 'project', 'team lead'].includes(s)) || resumeLower.includes('manager') || resumeLower.includes('lead');
+      const hasDesign = skillsLower.some(s => ['design', 'ui/ux', 'figma', 'photoshop', 'creative'].includes(s)) || resumeLower.includes('designer') || resumeLower.includes('creative');
+      const hasMarketing = skillsLower.some(s => ['marketing', 'seo', 'social media', 'analytics', 'campaigns'].includes(s)) || resumeLower.includes('marketing') || resumeLower.includes('digital marketing');
+      
+      // Frontend/Web Development Path
+      if (hasWebDev) {
         fallbackPaths.push({
-          title: "Software Developer",
-          match_percentage: 80,
-          why_fit: "Your programming skills and technical background make you suitable for development roles",
-          existing_skills: skills.filter(s => ['python', 'java', 'javascript', 'programming'].includes(s.toLowerCase())),
-          missing_skills: ["System Design", "Testing", "DevOps"],
-          salary_range: "$60k-$100k",
+          title: "Frontend Developer",
+          match_percentage: 85,
+          why_fit: "Your web development skills with technologies like React, JavaScript, and CSS make you well-suited for frontend development roles",
+          existing_skills: skills.filter(s => ['react', 'javascript', 'html', 'css', 'typescript', 'vue', 'angular'].includes(s.toLowerCase())),
+          missing_skills: ["Testing Frameworks", "Performance Optimization", "Accessibility"],
+          salary_range: "$65k-$95k",
           growth_potential: "High",
           learning_resources: [{
-            skill: "System Design",
-            course_name: "System Design Interview",
-            provider: "Educative",
-            link: "https://www.educative.io/courses/grokking-the-system-design-interview"
+            skill: "Testing Frameworks",
+            course_name: "JavaScript Testing with Jest and React Testing Library",
+            provider: "Udemy",
+            link: "https://www.udemy.com/course/react-testing-library/"
           }]
         });
       }
       
-      if (skillsLower.some(s => ['data', 'analysis', 'sql', 'excel', 'analytics'].includes(s))) {
+      // Backend Development Path
+      if (hasBackend) {
+        fallbackPaths.push({
+          title: "Backend Developer",
+          match_percentage: 82,
+          why_fit: "Your backend development experience with server-side technologies, APIs, and databases positions you well for backend roles",
+          existing_skills: skills.filter(s => ['python', 'java', 'node.js', 'sql', 'api', 'database'].includes(s.toLowerCase())),
+          missing_skills: ["Microservices", "Cloud Architecture", "DevOps"],
+          salary_range: "$70k-$105k",
+          growth_potential: "High",
+          learning_resources: [{
+            skill: "Microservices",
+            course_name: "Microservices with Node.js and React",
+            provider: "Udemy",
+            link: "https://www.udemy.com/course/microservices-with-node-js-and-react/"
+          }]
+        });
+      }
+      
+      // Data Analysis/Science Path
+      if (hasDataSkills) {
         fallbackPaths.push({
           title: "Data Analyst",
-          match_percentage: 75,
-          why_fit: "Your analytical skills and data experience align with data analyst roles",
-          existing_skills: skills.filter(s => ['data', 'analysis', 'sql', 'excel'].includes(s.toLowerCase())),
-          missing_skills: ["Advanced SQL", "Tableau", "Statistics"],
-          salary_range: "$50k-$80k",
+          match_percentage: 88,
+          why_fit: "Your analytical skills with Python, SQL, and data visualization tools make you an excellent fit for data analysis roles",
+          existing_skills: skills.filter(s => ['python', 'sql', 'tableau', 'power bi', 'pandas', 'numpy', 'excel'].includes(s.toLowerCase())),
+          missing_skills: ["Advanced Statistics", "Machine Learning", "R"],
+          salary_range: "$60k-$85k",
           growth_potential: "High",
           learning_resources: [{
-            skill: "Tableau",
-            course_name: "Tableau Desktop Specialist",
-            provider: "Tableau",
-            link: "https://www.tableau.com/learn/training"
+            skill: "Machine Learning",
+            course_name: "Machine Learning Specialization",
+            provider: "Coursera",
+            link: "https://www.coursera.org/specializations/machine-learning"
           }]
         });
       }
       
-      if (skillsLower.some(s => ['management', 'leadership', 'project', 'team'].includes(s))) {
+      // Management/Leadership Path
+      if (hasManagement) {
         fallbackPaths.push({
-          title: "Project Manager",
-          match_percentage: 70,
-          why_fit: "Your leadership and project management skills are valuable for PM roles",
-          existing_skills: skills.filter(s => ['management', 'leadership', 'project'].includes(s.toLowerCase())),
-          missing_skills: ["Agile Methodology", "Stakeholder Management", "Risk Assessment"],
-          salary_range: "$55k-$90k",
+          title: "Technical Project Manager",
+          match_percentage: 75,
+          why_fit: "Your leadership experience and project management skills, combined with technical knowledge, make you suitable for technical PM roles",
+          existing_skills: skills.filter(s => ['management', 'leadership', 'project management', 'agile'].includes(s.toLowerCase())),
+          missing_skills: ["Scrum Master Certification", "Stakeholder Management", "Risk Assessment"],
+          salary_range: "$75k-$110k",
           growth_potential: "High",
           learning_resources: [{
-            skill: "Agile Methodology",
-            course_name: "Agile Project Management",
+            skill: "Scrum Master Certification",
+            course_name: "Agile and Scrum Master Certification",
             provider: "Coursera",
-            link: "https://www.coursera.org/specializations/agile-development"
+            link: "https://www.coursera.org/learn/agile-scrum-master"
+          }]
+        });
+      }
+      
+      // UI/UX Design Path
+      if (hasDesign) {
+        fallbackPaths.push({
+          title: "UI/UX Designer",
+          match_percentage: 80,
+          why_fit: "Your design skills and experience with design tools position you well for user experience roles",
+          existing_skills: skills.filter(s => ['figma', 'photoshop', 'ui/ux', 'design', 'prototyping'].includes(s.toLowerCase())),
+          missing_skills: ["User Research", "Wireframing", "Design Systems"],
+          salary_range: "$60k-$90k",
+          growth_potential: "Medium-High",
+          learning_resources: [{
+            skill: "User Research",
+            course_name: "User Experience Research and Design",
+            provider: "Coursera",
+            link: "https://www.coursera.org/specializations/user-experience-research"
+          }]
+        });
+      }
+      
+      // Digital Marketing Path
+      if (hasMarketing) {
+        fallbackPaths.push({
+          title: "Digital Marketing Specialist",
+          match_percentage: 85,
+          why_fit: "Your marketing experience with digital tools and analytics makes you well-suited for digital marketing roles",
+          existing_skills: skills.filter(s => ['google analytics', 'seo', 'social media', 'marketing', 'campaigns'].includes(s.toLowerCase())),
+          missing_skills: ["Marketing Automation", "A/B Testing", "PPC Advertising"],
+          salary_range: "$50k-$75k",
+          growth_potential: "Medium-High",
+          learning_resources: [{
+            skill: "Marketing Automation",
+            course_name: "Digital Marketing Specialization",
+            provider: "Coursera",
+            link: "https://www.coursera.org/specializations/digital-marketing"
           }]
         });
       }
@@ -553,13 +832,13 @@ ${extractedText}`;
         try {
           keywords = JSON.parse(keywordsData.text);
         } catch (e) {
-          keywords = ["software", "development", "programming", "technology", "experience"];
+          keywords = extractedSkills.slice(0, 6);
         }
       } else {
-        keywords = ["software", "development", "programming", "technology", "experience"];
+        keywords = extractedSkills.slice(0, 6);
       }
     } catch (e) {
-      keywords = ["software", "development", "programming", "technology", "experience"];
+      keywords = extractedSkills.slice(0, 6);
     }
 
     console.log('✅ Resume analysis completed successfully using Cohere AI');
@@ -580,8 +859,11 @@ ${extractedText}`;
     
     // Ensure we have skills extracted before job generation
     if (!extractedSkills || extractedSkills.length === 0) {
-      console.log('No skills extracted, using fallback job generation');
-      extractedSkills = ['Communication', 'Problem-solving', 'Teamwork', 'Leadership'];
+      console.log('No skills extracted, using text analysis for job generation');
+      extractedSkills = extractSkillsFromText(extractedText);
+      if (extractedSkills.length === 0) {
+        extractedSkills = ['Communication', 'Problem-solving', 'Teamwork', 'Leadership'];
+      }
     }
     
     try {
