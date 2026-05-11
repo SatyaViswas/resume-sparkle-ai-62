@@ -10,7 +10,6 @@
 
 **Transform your career journey with AI-powered resume analysis, intelligent career path recommendations, and expert interview preparation**
 
-[Live Demo](#) • [Documentation](#documentation) • [Contributing](#contributing) • [License](#license)
 
 </div>
 
