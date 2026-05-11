@@ -593,65 +593,10 @@ We welcome contributions from the community! Here's how to get started:
    - Link any related issues
    - Request review from maintainers
 
-### Code Style Guidelines
-
-- Use TypeScript for type safety
-- Follow Prettier formatting (if configured)
-- Use meaningful variable and function names
-- Add comments for complex logic
-- Keep components focused and single-purpose
 
 ---
 
-## 📝 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 🙏 Acknowledgments
-
-- **shadcn/ui** - Beautiful and accessible component library
-- **Supabase** - Open-source backend platform
-- **Cohere** - Advanced AI and NLP capabilities
-- **Tailwind CSS** - Utility-first CSS framework
-- **React Community** - For the amazing ecosystem
-
----
-
-## 📞 Support & Contact
-
-- **Documentation:** [Full Docs](#)
-- **Issue Tracker:** [GitHub Issues](#)
-- **Email:** support@resumate.dev
-- **Twitter:** [@ResuMate](#)
-- **Discord:** [Join Community](#)
-
----
-
-## 🗺️ Roadmap
-
-- [ ] Advanced resume analytics and insights
-- [ ] Team/organization features
-- [ ] Mobile native apps (iOS/Android)
-- [ ] Real-time collaboration on resumes
-- [ ] Integration with LinkedIn and other platforms
-- [ ] Video interview practice
-- [ ] Salary insights and negotiation tools
-- [ ] Cover letter generation
-- [ ] ATS database of top companies
-
----
-
-## ⭐ Show Your Support
-
-If you found ResuMate helpful, please:
-- Star this repository ⭐
-- Share with others in your network
-- Report issues and suggest improvements
-- Contribute to making it better
-
----
 
 <div align="center">
 
